@@ -1,0 +1,9 @@
+# Configuration for Pearson Correlation Coefficient Calculation
+
+data:
+  input_file: "/home/inlabru_project/micecat2_data_100.csv.bz2"
+  output_file: "/home/rintaro/code/inlabru_nbody/output/micecat2_output_100/"
+
+parameters:
+  nsides: [16, 32, 64, 128, 256, 512, 1024, 2048] #Angular resolution of the map
+  num_bins: 14 #Number of bins for redshift binning
