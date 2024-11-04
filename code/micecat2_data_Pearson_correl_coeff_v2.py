@@ -102,6 +102,41 @@ def Healpix_map(binned_data, bin_num, nside=64):
     return Healpix_map
 
 
+def Healpix_map_z_cgal(data, nsides):
+    """
+    Generates a HEALPix map where each pixel contains the average redshift of galaxies within that pixel.
+    Parameters:
+        data (DataFrame): The input data containing 'ra_gal', 'dec_gal', and 'z_cgal'.
+        nsides (list): A list of HEALPix resolution parameters for each redshift bin.
+    Returns:
+        Healpix_map (array): A HEALPix map with the average redshift of galaxies in each pixel.
+    """
+    Healpix_maps = {}
+    ra = data["ra_gal"]
+    dec = data["dec_gal"]
+    z_cgal = data["z_cgal"]
+
+    # Convert the ra and dec to theta and phi
+    theta = np.pi / 2 - np.deg2rad(dec)
+    phi = np.deg2rad(ra)
+    for nside in nsides:
+        # Create a HEALPix map with the average redshift of galaxies in each pixel
+        # Get the pixel number for each ra, dec pair
+        pixels = hp.ang2pix(nside, theta, phi)
+        # Create an array to store the sum of redshifts and the count of galaxies in each pixel
+        sum_z = np.zeros(hp.nside2npix(nside))
+        count = np.zeros(hp.nside2npix(nside))
+        # Sum the redshifts and count the number of galaxies in each pixel
+        np.add.at(sum_z, pixels, z_cgal)
+        np.add.at(count, pixels, 1)
+        # Calculate the average redshift for each pixel
+        avg_z = np.zeros_like(sum_z)
+        nonzero_pixels = count > 0
+        avg_z[nonzero_pixels] = sum_z[nonzero_pixels] / count[nonzero_pixels]
+        Healpix_maps[nside] = avg_z  # Store the HEALPix map for the given nside
+    return Healpix_maps
+
+
 def binned_Healpix_maps(binned_data, num_bins, nsides):
     """
     Generates HEALPix maps for each redshift bin.
@@ -146,7 +181,7 @@ def calculate_mean_variance(healpix_map):
 
 def get_pixel_neighbor_pairs(healpix_map, nside):
     """
-    Optimized version to generate pairs of pixel values and their neighboring pixel values.
+    Generate pairs of pixel values and their neighboring pixel values.
 
     Parameters:
     healpix_map (numpy.ndarray): The HEALPix map data.
@@ -156,24 +191,21 @@ def get_pixel_neighbor_pairs(healpix_map, nside):
     numpy.ndarray: Array of pairs of pixel values and their neighboring pixel values.
     """
     npix = hp.nside2npix(nside)
-
-    # Get all neighbors at once
     neighbors = hp.get_all_neighbours(nside, np.arange(npix))
-    neighbor_values = healpix_map[neighbors]
-    # Mask out invalid neighbors (-1)
-    valid_mask = neighbor_values >= 0
 
-    # Flatten the arrays to create a one-to-one mapping of pixels and neighbors
-    valid_neighbors = neighbors[valid_mask]
-    valid_pixel_indices = np.where(valid_mask)[0]
-    # Use advanced indexing to get pixel and neighbor values
-    pixel_values = healpix_map[valid_pixel_indices]
-    neighbor_values = healpix_map[valid_neighbors]
+    pairs = []
+    for i in range(npix):
+        pixel_value = healpix_map[i]
+        if pixel_value == 0:  # Skip empty pixels
+            continue
+        neighbor_values = healpix_map[neighbors[:, i]]
+        valid_neighbors = neighbor_values[
+            neighbor_values > 0
+        ]  # Filter out invalid neighbors
 
-    # Stack the pixel and neighbor values into pairs
-    pairs = np.vstack([pixel_values, neighbor_values]).T
-
-    return pairs
+        for neighbor_value in valid_neighbors:
+            pairs.append([pixel_value, neighbor_value])
+    return np.array(pairs)
 
 
 def calculate_pearson_correlation(pairs):
@@ -186,20 +218,16 @@ def calculate_pearson_correlation(pairs):
     Returns:
     float: Pearson correlation coefficient.
     """
-    if len(pairs) == 0:
+    if len(pairs) == 0:  # Check if there are no valid pairs
         return np.nan
 
     pixel_values = pairs[:, 0]
     neighbor_values = pairs[:, 1]
-    # Create a mask where both pixel_values and neighbor_values are non-zero
-    non_zero_mask = (pixel_values != 0) & (neighbor_values != 0)
-    pixel_values = pixel_values[non_zero_mask]
-    neighbor_values = neighbor_values[non_zero_mask]
     correlation = np.corrcoef(pixel_values, neighbor_values)[0, 1]
     return correlation
 
 
-def make_list_Pearson_correlation(healpix_map, nsides):
+def make_list_Pearson_correlation(healpix_map, nsides, output_filename):
     """
     Calculate the Pearson correlation coefficient for each HEALPix map.
 
@@ -220,10 +248,28 @@ def make_list_Pearson_correlation(healpix_map, nsides):
             pairs = get_pixel_neighbor_pairs(Healpix_map_i, nside)
             print(f"Number of pairs: {len(pairs)}")
             print(f"pairs: {pairs}")
+            visualize_pairs(pairs, nside, bin_num, output_filename)
             correlation = calculate_pearson_correlation(pairs)
             print(f"Pearson correlation coefficient: {correlation}")
             correlation_bin.append(correlation)
         correlations.append(correlation_bin)
+    correlations = np.array(correlations)
+    return correlations
+
+
+def make_list_Pearson_correlation_zgal(healpix_map, nsides, output_filename):
+    correlations = []
+    for nside in nsides:
+        print(f"Calculating the Pearson correlation coefficient for nside: {nside}")
+        Healpix_map_i = healpix_map[nside]
+        pairs = get_pixel_neighbor_pairs(Healpix_map_i, nside)
+        visualize_pairs_cgal(pairs, nside, output_filename)
+        print(f"Number of pairs: {len(pairs)}")
+        print(f"pairs: {pairs}")
+        # visualize_pairs(pairs, nside, bin_num, output_filename)
+        correlation = calculate_pearson_correlation(pairs)
+        print(f"Pearson correlation coefficient: {correlation}")
+        correlations.append(correlation)
     correlations = np.array(correlations)
     return correlations
 
@@ -500,6 +546,33 @@ def visualize_pearson_correlation_vs_arcdegree(
     plt.close()
 
 
+def visualize_pairs(pairs, nside, num_bins, output_filename):
+    """
+    Visualize the pairs of pixel values and their neighboring pixel values.
+
+    Parameters:
+    pairs (numpy.ndarray): Array of pairs of pixel values and their neighboring pixel values.
+    nsides (list): List of nside values.
+    num_bins (int): Number of redshift bins.
+    """
+    output_filename = os.path.join(
+        output_filename, "Pairs/"
+    )  # Create a directory to store the output images
+    if not os.path.exists(output_filename):  # Check if the directory exists
+        os.makedirs(output_filename)
+
+    plt.figure(figsize=(10, 6))
+    plt.scatter(pairs[:, 0], pairs[:, 1], s=1, label=f"Bin {num_bins} nside {nside}")
+    plt.xlabel(r"Galaxy counts, $N_i$ (within each pixel)")
+    plt.ylabel(r"Galaxy counts, $N_j$ (in neighboring pixels)")
+    plt.title(f"Pairs of galaxy counts and Their Neighboring Mean Redshifts in nside={nside} and Bin {num_bins}")
+    plt.legend()
+    plt.grid(True)
+    plt.show()
+    plt.savefig(f"{output_filename}{nside}_{num_bins}pairs.png")
+    plt.close()
+
+
 def visualize_pearson_correlation_vs_square_degree(
     correlations, nsides, num_bins, output_filename
 ):
@@ -537,6 +610,118 @@ def visualize_pearson_correlation_vs_square_degree(
     plt.savefig(f"{output_filename}Pearson_correlation_vs_square_degree.png")
     plt.close()
 
+
+def visualize_pairs_cgal(pairs, nside, output_filename):
+    """
+    Visualize the pairs of pixel values and their neighboring pixel values.
+
+    Parameters:
+    pairs (numpy.ndarray): Array of pairs of pixel values and their neighboring pixel values.
+    nsides (list): List of nside values.
+    num_bins (int): Number of redshift bins.
+    """
+    output_filename = os.path.join(
+        output_filename, "Pairs_cgal/"
+    )  # Create a directory to store the output images
+    if not os.path.exists(output_filename):  # Check if the directory exists
+        os.makedirs(output_filename)
+
+    plt.figure(figsize=(10, 6))
+    plt.scatter(pairs[:, 0], pairs[:, 1], s=1, label=f"nside {nside}")
+    plt.xlabel(r"Mean Redshift, $z_i$ (within each pixel)")
+    plt.ylabel(r"Mean Redshift, $z_j$ (in neighboring pixels)")
+    plt.title(f"Pairs of Mean Redshifts and Their Neighboring Mean Redshifts in nside={nside}")
+    plt.legend()
+    plt.grid(True)
+    plt.show()
+    plt.savefig(f"{output_filename}{nside}pairs.png")
+    plt.close()
+
+
+def visualize_healpix_map_z_cgal(healpix_maps, nsides, output_filename):
+    """
+    Visualizes a HEALPix map of average redshift using mollview.
+    Parameters:
+        healpix_map (array): The HEALPix map of average redshift.
+        nsides (list): List of nside values.
+        output_filename (str): The path to the output file.
+    """
+    output_filename = os.path.join(output_filename, "Healpix_map_z_cgal/")
+    if not os.path.exists(output_filename):
+        os.makedirs(output_filename)
+    for nside in nsides:
+        healpix_maps_nside = healpix_maps[nside]
+        plt.figure()
+        hp.mollview(
+            healpix_maps_nside,
+            title=f"HEALPix Map of Average Redshift (nside={nside})",
+            cmap="viridis",
+            min=np.amin(healpix_maps_nside),
+            max=np.amax(healpix_maps_nside),
+            unit="Average Redshift",
+        )
+        hp.graticule()
+        plt.show()
+        plt.savefig(f"{output_filename}healpix_map_z_cgal_nside_{nside}.png")
+        plt.close()
+
+
+def visualize_pearson_correlation_vs_square_degree_zgal(correlations, nsides, output_filename):
+    """
+    Visualize the Pearson correlation coefficient against the pixel area in square degrees
+    and compare the curve across multiple redshift bins.
+
+    Parameters:
+    correlations (numpy.ndarray): Array of Pearson correlation coefficients for different nsides and redshift bins.
+    nsides (list): List of nside values.
+    num_bins (int): Number of redshift bins.
+    """
+    output_filename = os.path.join(
+        output_filename, "Pearson_correlation_square_degree_zgal/"
+    )  # Create a directory to store the output images
+    if not os.path.exists(output_filename):  # Check if the directory exists
+        os.makedirs(output_filename)
+
+    # Calculate pixel area in square degrees for each nside
+    pixel_area_sqdeg = [hp.nside2pixarea(nside, degrees=True) for nside in nsides]
+
+    plt.figure(figsize=(10, 6))
+    plt.plot(pixel_area_sqdeg, correlations)
+    plt.xlabel("Pixel Area (Square Degrees)")
+    plt.ylabel("Pearson Correlation")
+    plt.title("Pearson Correlation vs Pixel Area (Square Degrees) for z_cgal")
+    plt.grid(True)
+    plt.xscale("log")
+    plt.show()
+    plt.savefig(f"{output_filename}Pearson_correlation_vs_square_degree_zgal.png")
+    plt.close()
+
+def visualize_pearson_correlation_vs_nsides_zgal(correlations, nsides, output_filename):
+    """
+    Visualize the Pearson correlation coefficient against the pixel area in square degrees
+    and compare the curve across multiple redshift bins.
+
+    Parameters:
+    correlations (numpy.ndarray): Array of Pearson correlation coefficients for different nsides and redshift bins.
+    nsides (list): List of nside values.
+    num_bins (int): Number of redshift bins.
+    """
+    output_filename = os.path.join(
+        output_filename, "Pearson_correlation_nsides_zgal/"
+    )  # Create a directory to store the output images
+    if not os.path.exists(output_filename):  # Check if the directory exists
+        os.makedirs(output_filename)
+
+    plt.figure(figsize=(10, 6))
+    plt.plot(nsides, correlations)
+    plt.xlabel("Nside")
+    plt.ylabel("Pearson Correlation")
+    plt.title("Pearson Correlation vs Nside for z_cgal")
+    plt.grid(True)
+    plt.xscale("log")
+    plt.show()
+    plt.savefig(f"{output_filename}Pearson_correlation_vs_nsides_zgal.png")
+    plt.close()
 
 """
 Utility functions
@@ -594,29 +779,28 @@ def main():
     z = data_gal["z_cgal"]  # Spectroscopic redshift
 
     # Part 2: Split the data into redshift bins and generate the Healpix maps
+    Healpix_maps_zgal = measure_time(Healpix_map_z_cgal)(data_gal, nsides)
     # Split the data into redshift bins
     binned_data = measure_time(split_data)(data_gal, z, num_bins)
     # Generate the HEALPix maps for each redshift bin
-    Healpix_maps = measure_time(binned_Healpix_maps)(binned_data, num_bins, nsides)
+    Healpix_maps_binned = measure_time(binned_Healpix_maps)(binned_data, num_bins, nsides)
+
     # Part 3: Calculate the Statistical Values(Mean, Variance, Pearson correlation coefficient) of input data
-    # measure_time(visulaize_mean_variance)(Healpix_maps, nsides, output_filename)
-    # measure_time(visualize_healpix)(Healpix_maps, nsides, output_filename)
-    # measure_time(visualize_healpix_gnom_view)(Healpix_maps, nsides, output_filename)
-    # measure_time(plot_histogram_galaxies)(Healpix_maps, nsides, output_filename)
+    measure_time(visulaize_mean_variance)(Healpix_maps_binned, nsides, output_filename)
+    measure_time(visualize_healpix)(Healpix_maps_binned, nsides, output_filename)
+    measure_time(visualize_healpix_map_z_cgal)(Healpix_maps_zgal, nsides, output_filename)
+    measure_time(visualize_healpix_gnom_view)(Healpix_maps_binned, nsides, output_filename)
+    measure_time(plot_histogram_galaxies)(Healpix_maps_binned, nsides, output_filename)
     # Calculate the Pearson correlation coefficient for each HEALPix map
-    Pearson_correlation = measure_time(make_list_Pearson_correlation)(
-        Healpix_maps, nsides
-    )
+    Pearson_correlation = measure_time(make_list_Pearson_correlation)(Healpix_maps_binned, nsides, output_filename)
+    Pearson_correlation_zgal = measure_time(make_list_Pearson_correlation_zgal)(Healpix_maps_zgal, nsides, output_filename)
+
     # Part 4: Visualize the results
-    measure_time(visualize_pearson_correlation_vs_nside)(
-        Pearson_correlation, nsides, num_bins, output_filename
-    )
-    measure_time(visualize_pearson_correlation_vs_arcdegree)(
-        Pearson_correlation, nsides, num_bins, output_filename
-    )
-    measure_time(visualize_pearson_correlation_vs_square_degree)(
-        Pearson_correlation, nsides, num_bins, output_filename
-    )
+    
+    measure_time(visualize_pearson_correlation_vs_nside)(Pearson_correlation, nsides, num_bins, output_filename)
+    measure_time(visualize_pearson_correlation_vs_arcdegree)(Pearson_correlation, nsides, num_bins, output_filename)
+    measure_time(visualize_pearson_correlation_vs_square_degree_zgal)(Pearson_correlation_zgal, nsides, output_filename)
+    measure_time(visualize_pearson_correlation_vs_nsides_zgal)(Pearson_correlation_zgal, nsides, output_filename)
 
 
 if __name__ == "__main__":

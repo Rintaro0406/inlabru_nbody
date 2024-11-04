@@ -191,7 +191,6 @@ def calculate_pearson_correlation(pairs):
     correlation = np.corrcoef(pixel_values, neighbor_values)[0, 1]
     return correlation
 
-
 def make_list_Pearson_correlation(healpix_map, nsides, output_filename):
     """
     Calculate the Pearson correlation coefficient for each HEALPix map.
@@ -493,6 +492,7 @@ def visualize_pearson_correlation_vs_arcdegree(
     plt.savefig(f"{output_filename}Pearson_correlation_vs_arcdegree.png")
     plt.close()
 
+
 def visualize_pairs(pairs, nside, num_bins, output_filename):
     """
     Visualize the pairs of pixel values and their neighboring pixel values.
@@ -518,6 +518,7 @@ def visualize_pairs(pairs, nside, num_bins, output_filename):
     plt.show()
     plt.savefig(f"{output_filename}{nside}_{num_bins}pairs.png")
     plt.close()
+
 
 def visualize_pearson_correlation_vs_square_degree(
     correlations, nsides, num_bins, output_filename
