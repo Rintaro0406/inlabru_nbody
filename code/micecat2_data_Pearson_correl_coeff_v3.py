@@ -5,12 +5,88 @@ import numpy as np
 import matplotlib.pyplot as plt
 import healpy as hp
 import time
+import psutil
+import gc
+from functools import wraps
+import sys
+
+"""
+Utility functions
+"""
+
+
+def measure_time(func):
+    """
+    Decorator to measure the execution time of a function.
+    Parameters:
+        func (function): The function to be measured.
+    Returns:
+        wrapper (function): The wrapped function with time measurement.
+    """
+
+    def wrapper(*args, **kwargs):
+        start_time = time.time()
+        result = func(*args, **kwargs)
+        end_time = time.time()
+        print(
+            f"Function '{func.__name__}' executed in {end_time - start_time:.4f} seconds"
+        )
+        return result
+
+    return wrapper
+
+# Decorator to monitor memory usage
+def check_memory(threshold=0.8):
+    """
+    A decorator to check memory usage before and after a function call.
+    Exits the program if memory usage exceeds the specified threshold.
+
+    Parameters:
+        threshold (float): The memory usage limit (e.g., 0.8 for 80%).
+    """
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            process = psutil.Process()
+            total_memory = psutil.virtual_memory().total / (1024 ** 2)  # Total system memory in MB
+
+            # Print total system memory
+            print(f"Total system memory: {total_memory:.2f} MB")
+
+            # Memory usage percentage before the function call
+            memory_before = process.memory_info().rss / (1024 ** 2)  # In MB
+            memory_percent_before = (memory_before / total_memory) * 100
+            print(f"[{func.__name__}] Memory before execution: {memory_percent_before:.2f}%")
+
+            # Execute the original function
+            result = func(*args, **kwargs)
+
+            # Memory usage percentage after the function call
+            memory_after = process.memory_info().rss / (1024 ** 2)  # In MB
+            memory_percent_after = (memory_after / total_memory) * 100
+            print(f"[{func.__name__}] Memory after execution: {memory_percent_after:.2f}%")
+
+            # Force garbage collection to release memory
+            gc.collect()
+            memory_after_gc = process.memory_info().rss / (1024 ** 2)  # In MB
+            memory_percent_after_gc = (memory_after_gc / total_memory) * 100
+            print(f"[{func.__name__}] Memory after garbage collection: {memory_percent_after_gc:.2f}%")
+
+            # Exit the program if memory usage exceeds the threshold
+            if psutil.virtual_memory().percent / 100.0 > threshold:
+                print(f"[{func.__name__}] Memory usage exceeded {threshold * 100}%. Exiting.")
+                sys.exit(1)
+
+            return result
+
+        return wrapper
+
+    return decorator
 
 """
 Part 1: Read the input data
 """
-
-
+@check_memory(threshold=0.8)
 def read_yaml(file_path):
     """
     Reads a YAML file and returns its contents as a Python dictionary.
@@ -23,7 +99,7 @@ def read_yaml(file_path):
         data = yaml.safe_load(file)
     return data
 
-
+@check_memory(threshold=0.8)
 def read_pandas(catalog_filename, index_col=None, chunksize=10000):
     """
     Reads a CSV file into a pandas DataFrame in chunks.
@@ -77,7 +153,6 @@ def split_data(data_gal, z, num_bins):
         # print(f"Bin {i}: {len(binned_data[i])} entries")
     return binned_data
 
-
 def Healpix_map(binned_data, bin_num, nside=64):
     """
     Generates a HEALPix map of the number of galaxies in each pixel for a given redshift bin.
@@ -101,7 +176,7 @@ def Healpix_map(binned_data, bin_num, nside=64):
     Healpix_map = np.bincount(pixels, minlength=hp.nside2npix(nside))
     return Healpix_map
 
-
+@check_memory(threshold=0.8)
 def Healpix_map_z_cgal(data, nsides):
     """
     Generates a HEALPix map where each pixel contains the average redshift of galaxies within that pixel.
@@ -134,6 +209,9 @@ def Healpix_map_z_cgal(data, nsides):
         nonzero_pixels = count > 0
         avg_z[nonzero_pixels] = sum_z[nonzero_pixels] / count[nonzero_pixels]
         Healpix_maps[nside] = avg_z  # Store the HEALPix map for the given nside
+        # Clear the memory to free up space
+        del pixels, sum_z, count, avg_z
+        gc.collect()
     return Healpix_maps
 
 
@@ -256,8 +334,19 @@ def make_list_Pearson_correlation(healpix_map, nsides, output_filename):
     correlations = np.array(correlations)
     return correlations
 
-
+@check_memory(threshold=0.8)
 def make_list_Pearson_correlation_zgal(healpix_map, nsides, output_filename):
+    """
+    Calculate the Pearson correlation coefficient for each HEALPix map.
+    
+    Parameters:
+    healpix_map (dict): A dictionary containing the HEALPix maps for each redshift bin.
+    nsides (list): A list of HEALPix resolution parameters for each redshift bin.
+    output_filename (str): The path to the output file.
+
+    Returns:
+    numpy.ndarray: Array of Pearson correlation coefficients for each HEALPix map.
+    """
     correlations = []
     for nside in nsides:
         print(f"Calculating the Pearson correlation coefficient for nside: {nside}")
@@ -270,15 +359,15 @@ def make_list_Pearson_correlation_zgal(healpix_map, nsides, output_filename):
         correlation = calculate_pearson_correlation(pairs)
         print(f"Pearson correlation coefficient: {correlation}")
         correlations.append(correlation)
-    correlations = np.array(correlations)
-    return correlations
-
+    correlations_np = np.array(correlations)
+    #free up memory
+    del pairs, Healpix_map_i, correlations, correlation
+    gc.collect()
+    return correlations_np
 
 """
 Part 4: Visualize the results
 """
-
-
 def visualize_healpix(healpix_map, nsides, output_filename):
     """
     Visualizes a HEALPix map.
@@ -482,6 +571,45 @@ def visulaize_mean_variance(healpix_map, nsides, output_filename):
     plt.savefig(f"{output_filename}mean_galaxy_count.png")
     plt.close()
 
+def visualize_mean_variance_zgal(healpix_map, nsides, output_filename):
+    """
+    Visualizes the mean and variance of the galaxy counts in each HEALPix pixel.
+    Parameters:
+        healpix_map (dict): A dictionary containing the HEALPix maps for each redshift bin.
+        nsides (list): A list of HEALPix resolution parameters for each redshift bin.
+        output_filename (str): The path to the output file.
+    """
+    output_filename = os.path.join(
+        output_filename, "mean_and_variance_zgal/"
+    )  # Create a directory to store the output images
+    if not os.path.exists(output_filename):  # Check if the directory exists
+        os.makedirs(output_filename)
+
+    mean_values = []
+    error_values = []
+
+    for nside in nsides:
+        print(f"Processing nside {nside}")
+        mean, variance = calculate_mean_variance(healpix_map[nside])
+        mean_values.append(mean)
+        error_values.append(np.sqrt(variance)) #standard deviation as error not variance
+    means = np.array(mean_values)
+    errors = np.array(error_values)
+    plt.figure(figsize=(10, 6))
+    plt.errorbar(
+        nsides,
+        means,
+        yerr=np.sqrt(errors),
+        capsize=5,
+    )
+    plt.xlabel("Nside")
+    plt.ylabel("Mean Redshift")
+    plt.title("Mean Redshift with Error Bars for z_cgal")
+    plt.grid(True)
+    plt.xscale("log")
+    plt.show()
+    plt.savefig(f"{output_filename}mean_redshift_zgal.png")
+    plt.close()
 
 def visualize_pearson_correlation_vs_nside(
     correlations, nsides, num_bins, output_filename
@@ -565,9 +693,7 @@ def visualize_pairs(pairs, nside, num_bins, output_filename):
     plt.scatter(pairs[:, 0], pairs[:, 1], s=1, label=f"Bin {num_bins} nside {nside}")
     plt.xlabel(r"Galaxy counts, $N_i$ (within each pixel)")
     plt.ylabel(r"Galaxy counts, $N_j$ (in neighboring pixels)")
-    plt.title(
-        f"Pairs of galaxy counts and Their Neighboring Mean Redshifts in nside={nside} and Bin {num_bins}"
-    )
+    plt.title(f"Pairs of galaxy counts and Their Neighboring Mean Redshifts in nside={nside} and Bin {num_bins}")
     plt.legend()
     plt.grid(True)
     plt.show()
@@ -632,9 +758,7 @@ def visualize_pairs_cgal(pairs, nside, output_filename):
     plt.scatter(pairs[:, 0], pairs[:, 1], s=1, label=f"nside {nside}")
     plt.xlabel(r"Mean Redshift, $z_i$ (within each pixel)")
     plt.ylabel(r"Mean Redshift, $z_j$ (in neighboring pixels)")
-    plt.title(
-        f"Pairs of Mean Redshifts and Their Neighboring Mean Redshifts in nside={nside}"
-    )
+    plt.title(f"Pairs of Mean Redshifts and Their Neighboring Mean Redshifts in nside={nside}")
     plt.legend()
     plt.grid(True)
     plt.show()
@@ -670,9 +794,7 @@ def visualize_healpix_map_z_cgal(healpix_maps, nsides, output_filename):
         plt.close()
 
 
-def visualize_pearson_correlation_vs_square_degree_zgal(
-    correlations, nsides, output_filename
-):
+def visualize_pearson_correlation_vs_square_degree_zgal(correlations, nsides, output_filename):
     """
     Visualize the Pearson correlation coefficient against the pixel area in square degrees
     and compare the curve across multiple redshift bins.
@@ -701,7 +823,6 @@ def visualize_pearson_correlation_vs_square_degree_zgal(
     plt.show()
     plt.savefig(f"{output_filename}Pearson_correlation_vs_square_degree_zgal.png")
     plt.close()
-
 
 def visualize_pearson_correlation_vs_nsides_zgal(correlations, nsides, output_filename):
     """
@@ -732,36 +853,9 @@ def visualize_pearson_correlation_vs_nsides_zgal(correlations, nsides, output_fi
 
 
 """
-Utility functions
-"""
-
-
-def measure_time(func):
-    """
-    Decorator to measure the execution time of a function.
-    Parameters:
-        func (function): The function to be measured.
-    Returns:
-        wrapper (function): The wrapped function with time measurement.
-    """
-
-    def wrapper(*args, **kwargs):
-        start_time = time.time()
-        result = func(*args, **kwargs)
-        end_time = time.time()
-        print(
-            f"Function '{func.__name__}' executed in {end_time - start_time:.4f} seconds"
-        )
-        return result
-
-    return wrapper
-
-
-"""
 Main function
 """
-
-
+@check_memory(threshold=0.8)
 def main():
     """
     The main function of the script.
@@ -788,45 +882,30 @@ def main():
 
     # Part 2: Split the data into redshift bins and generate the Healpix maps
     Healpix_maps_zgal = measure_time(Healpix_map_z_cgal)(data_gal, nsides)
+    del data_gal, z
+    gc.collect()
     # Split the data into redshift bins
-    binned_data = measure_time(split_data)(data_gal, z, num_bins)
+    #binned_data = measure_time(split_data)(data_gal, z, num_bins)
     # Generate the HEALPix maps for each redshift bin
-    Healpix_maps_binned = measure_time(binned_Healpix_maps)(
-        binned_data, num_bins, nsides
-    )
+    #Healpix_maps_binned = measure_time(binned_Healpix_maps)(binned_data, num_bins, nsides)
 
     # Part 3: Calculate the Statistical Values(Mean, Variance, Pearson correlation coefficient) of input data
-    measure_time(visulaize_mean_variance)(Healpix_maps_binned, nsides, output_filename)
-    measure_time(visualize_healpix)(Healpix_maps_binned, nsides, output_filename)
-    measure_time(visualize_healpix_map_z_cgal)(
-        Healpix_maps_zgal, nsides, output_filename
-    )
-    measure_time(visualize_healpix_gnom_view)(
-        Healpix_maps_binned, nsides, output_filename
-    )
-    measure_time(plot_histogram_galaxies)(Healpix_maps_binned, nsides, output_filename)
+    #measure_time(visulaize_mean_variance)(Healpix_maps_binned, nsides, output_filename)
+    #measure_time(visualize_healpix)(Healpix_maps_binned, nsides, output_filename)
+    #measure_time(visualize_healpix_map_z_cgal)(Healpix_maps_zgal, nsides, output_filename)
+    #measure_time(visualize_healpix_gnom_view)(Healpix_maps_binned, nsides, output_filename)
+    #measure_time(plot_histogram_galaxies)(Healpix_maps_binned, nsides, output_filename)
     # Calculate the Pearson correlation coefficient for each HEALPix map
-    Pearson_correlation = measure_time(make_list_Pearson_correlation)(
-        Healpix_maps_binned, nsides, output_filename
-    )
-    Pearson_correlation_zgal = measure_time(make_list_Pearson_correlation_zgal)(
-        Healpix_maps_zgal, nsides, output_filename
-    )
+    #Pearson_correlation = measure_time(make_list_Pearson_correlation)(Healpix_maps_binned, nsides, output_filename)
+    measure_time(visualize_mean_variance_zgal)(Healpix_maps_zgal, nsides, output_filename)
+    Pearson_correlation_zgal = measure_time(make_list_Pearson_correlation_zgal)(Healpix_maps_zgal, nsides, output_filename)
 
     # Part 4: Visualize the results
-
-    measure_time(visualize_pearson_correlation_vs_nside)(
-        Pearson_correlation, nsides, num_bins, output_filename
-    )
-    measure_time(visualize_pearson_correlation_vs_arcdegree)(
-        Pearson_correlation, nsides, num_bins, output_filename
-    )
-    measure_time(visualize_pearson_correlation_vs_square_degree_zgal)(
-        Pearson_correlation_zgal, nsides, output_filename
-    )
-    measure_time(visualize_pearson_correlation_vs_nsides_zgal)(
-        Pearson_correlation_zgal, nsides, output_filename
-    )
+    
+    #measure_time(visualize_pearson_correlation_vs_nside)(Pearson_correlation, nsides, num_bins, output_filename)
+    #measure_time(visualize_pearson_correlation_vs_arcdegree)(Pearson_correlation, nsides, num_bins, output_filename)
+    measure_time(visualize_pearson_correlation_vs_square_degree_zgal)(Pearson_correlation_zgal, nsides, output_filename)
+    measure_time(visualize_pearson_correlation_vs_nsides_zgal)(Pearson_correlation_zgal, nsides, output_filename)
 
 
 if __name__ == "__main__":
