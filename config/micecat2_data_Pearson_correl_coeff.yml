@@ -1,7 +1,7 @@
 # Configuration for Pearson Correlation Coefficient Calculation
 
 data:
-  input_file: "/home/inlabru_project/micecat2_data_small.csv.bz2"
+  input_file: "/Users/r.kanaki/code/inlabru_nbody/data/micecat2_GC/micecat2_data_small.csv.bz2"
   output_file: "/home/rintaro/code/inlabru_nbody/output/micecat2_output/"
 
 parameters:

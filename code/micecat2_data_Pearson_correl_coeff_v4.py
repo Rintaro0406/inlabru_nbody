@@ -10,6 +10,9 @@ import gc
 from functools import wraps
 import sys
 from scipy.optimize import curve_fit
+import matplotlib
+
+matplotlib.use("Agg")  # Non-interactive backend for saving files
 """
 Utility functions
 """
@@ -35,6 +38,7 @@ def measure_time(func):
 
     return wrapper
 
+
 # Decorator to monitor memory usage
 def check_memory(threshold=0.8):
     """
@@ -44,37 +48,48 @@ def check_memory(threshold=0.8):
     Parameters:
         threshold (float): The memory usage limit (e.g., 0.8 for 80%).
     """
+
     def decorator(func):
         @wraps(func)
         def wrapper(*args, **kwargs):
             process = psutil.Process()
-            total_memory = psutil.virtual_memory().total / (1024 ** 2)  # Total system memory in MB
+            total_memory = psutil.virtual_memory().total / (
+                1024**2
+            )  # Total system memory in MB
 
             # Print total system memory
             print(f"Total system memory: {total_memory:.2f} MB")
 
             # Memory usage percentage before the function call
-            memory_before = process.memory_info().rss / (1024 ** 2)  # In MB
+            memory_before = process.memory_info().rss / (1024**2)  # In MB
             memory_percent_before = (memory_before / total_memory) * 100
-            print(f"[{func.__name__}] Memory before execution: {memory_percent_before:.2f}%")
+            print(
+                f"[{func.__name__}] Memory before execution: {memory_percent_before:.2f}%"
+            )
 
             # Execute the original function
             result = func(*args, **kwargs)
 
             # Memory usage percentage after the function call
-            memory_after = process.memory_info().rss / (1024 ** 2)  # In MB
+            memory_after = process.memory_info().rss / (1024**2)  # In MB
             memory_percent_after = (memory_after / total_memory) * 100
-            print(f"[{func.__name__}] Memory after execution: {memory_percent_after:.2f}%")
+            print(
+                f"[{func.__name__}] Memory after execution: {memory_percent_after:.2f}%"
+            )
 
             # Force garbage collection to release memory
             gc.collect()
-            memory_after_gc = process.memory_info().rss / (1024 ** 2)  # In MB
+            memory_after_gc = process.memory_info().rss / (1024**2)  # In MB
             memory_percent_after_gc = (memory_after_gc / total_memory) * 100
-            print(f"[{func.__name__}] Memory after garbage collection: {memory_percent_after_gc:.2f}%")
+            print(
+                f"[{func.__name__}] Memory after garbage collection: {memory_percent_after_gc:.2f}%"
+            )
 
             # Exit the program if memory usage exceeds the threshold
             if psutil.virtual_memory().percent / 100.0 > threshold:
-                print(f"[{func.__name__}] Memory usage exceeded {threshold * 100}%. Exiting.")
+                print(
+                    f"[{func.__name__}] Memory usage exceeded {threshold * 100}%. Exiting."
+                )
                 sys.exit(1)
 
             return result
@@ -83,9 +98,12 @@ def check_memory(threshold=0.8):
 
     return decorator
 
+
 """
 Part 1: Read the input data
 """
+
+
 @check_memory(threshold=0.8)
 def read_yaml(file_path):
     """
@@ -98,6 +116,7 @@ def read_yaml(file_path):
     with open(file_path, "r") as file:
         data = yaml.safe_load(file)
     return data
+
 
 @check_memory(threshold=0.8)
 def read_pandas(catalog_filename, index_col=None, chunksize=10000):
@@ -153,6 +172,7 @@ def split_data(data_gal, z, num_bins):
         # print(f"Bin {i}: {len(binned_data[i])} entries")
     return binned_data
 
+
 def Healpix_map(binned_data, bin_num, nside=64):
     """
     Generates a HEALPix map of the number of galaxies in each pixel for a given redshift bin.
@@ -175,6 +195,7 @@ def Healpix_map(binned_data, bin_num, nside=64):
     # Create a HEALPix map with the number of galaxies in each pixel
     Healpix_map = np.bincount(pixels, minlength=hp.nside2npix(nside))
     return Healpix_map
+
 
 @check_memory(threshold=0.8)
 def Healpix_map_z_cgal(data, nsides):
@@ -256,6 +277,31 @@ def calculate_mean_variance(healpix_map):
     variance = np.var(healpix_map[healpix_map > 0])
     return mean, variance
 
+def calculate_dispersion(healpix_map, nsides):
+    """
+    Calculate the dispersion statistic (variance-to-mean ratio) for each nside.
+
+    Parameters:
+    healpix_map (dict): A dictionary containing the HEALPix maps for each redshift bin.
+    nsides (list): List of nside values.
+
+    Returns:
+    numpy.ndarray: Array of dispersion statistics for each nside.
+    """
+    dispersion_stats = []
+    
+    for nside in nsides:
+        print(f"Calculating dispersion statistic for nside: {nside}")
+        map_data = healpix_map[nside]
+        mean_value = np.mean(map_data[map_data > 0])
+        variance_value = np.var(map_data[map_data > 0])
+        
+        # Calculate the dispersion statistic (variance-to-mean ratio)
+        dispersion = variance_value / mean_value
+        print(f"Dispersion statistic (Var/Mean): {dispersion:.4f}")
+        dispersion_stats.append(dispersion)
+
+    return np.array(dispersion_stats)
 
 def get_pixel_neighbor_pairs(healpix_map, nside):
     """
@@ -334,11 +380,12 @@ def make_list_Pearson_correlation(healpix_map, nsides, output_filename):
     correlations = np.array(correlations)
     return correlations
 
+
 @check_memory(threshold=0.8)
 def make_list_Pearson_correlation_zgal(healpix_map, nsides, output_filename):
     """
     Calculate the Pearson correlation coefficient for each HEALPix map.
-    
+
     Parameters:
     healpix_map (dict): A dictionary containing the HEALPix maps for each redshift bin.
     nsides (list): A list of HEALPix resolution parameters for each redshift bin.
@@ -360,16 +407,18 @@ def make_list_Pearson_correlation_zgal(healpix_map, nsides, output_filename):
         print(f"Pearson correlation coefficient: {correlation}")
         correlations.append(correlation)
     correlations_np = np.array(correlations)
-    #free up memory
+    # free up memory
     del pairs, Healpix_map_i, correlations, correlation
     gc.collect()
     return correlations_np
+
 
 def exponential_model(r, r0, gamma):
     """
     Power law model function: g(r) = 1 + (r / r0)^{-gamma}
     """
     return (r / r0) ** (-gamma)
+
 
 @check_memory(threshold=0.8)
 def fit_power_law(pixel_areas, correlations):
@@ -398,7 +447,9 @@ def fit_power_law(pixel_areas, correlations):
 
     # Fit the power law model
     try:
-        popt, pcov = curve_fit(exponential_model, separations, correlations, p0=initial_guess)
+        popt, pcov = curve_fit(
+            exponential_model, separations, correlations, p0=initial_guess
+        )
         r0, gamma = popt
         print(f"Fitted parameters: r0 = {r0:.4f}, gamma = {gamma:.4f}")
     except RuntimeError as e:
@@ -406,9 +457,13 @@ def fit_power_law(pixel_areas, correlations):
         return None, None
 
     return r0, gamma
+
+
 """
 Part 4: Visualize the results
 """
+
+
 def visualize_healpix(healpix_map, nsides, output_filename):
     """
     Visualizes a HEALPix map.
@@ -612,6 +667,7 @@ def visulaize_mean_variance(healpix_map, nsides, output_filename):
     plt.savefig(f"{output_filename}mean_galaxy_count.png")
     plt.close()
 
+
 def visualize_mean_variance_zgal(healpix_map, nsides, output_filename):
     """
     Visualizes the mean and variance of the galaxy counts in each HEALPix pixel.
@@ -633,7 +689,9 @@ def visualize_mean_variance_zgal(healpix_map, nsides, output_filename):
         print(f"Processing nside {nside}")
         mean, variance = calculate_mean_variance(healpix_map[nside])
         mean_values.append(mean)
-        error_values.append(np.sqrt(variance)) #standard deviation as error not variance
+        error_values.append(
+            np.sqrt(variance)
+        )  # standard deviation as error not variance
     means = np.array(mean_values)
     errors = np.array(error_values)
     plt.figure(figsize=(10, 6))
@@ -651,6 +709,7 @@ def visualize_mean_variance_zgal(healpix_map, nsides, output_filename):
     plt.show()
     plt.savefig(f"{output_filename}mean_redshift_zgal.png")
     plt.close()
+
 
 def visualize_pearson_correlation_vs_nside(
     correlations, nsides, num_bins, output_filename
@@ -734,7 +793,9 @@ def visualize_pairs(pairs, nside, num_bins, output_filename):
     plt.scatter(pairs[:, 0], pairs[:, 1], s=1, label=f"Bin {num_bins} nside {nside}")
     plt.xlabel(r"Galaxy counts, $N_i$ (within each pixel)")
     plt.ylabel(r"Galaxy counts, $N_j$ (in neighboring pixels)")
-    plt.title(f"Pairs of galaxy counts and Their Neighboring Mean Redshifts in nside={nside} and Bin {num_bins}")
+    plt.title(
+        f"Pairs of galaxy counts and Their Neighboring Mean Redshifts in nside={nside} and Bin {num_bins}"
+    )
     plt.legend()
     plt.grid(True)
     plt.show()
@@ -799,7 +860,9 @@ def visualize_pairs_cgal(pairs, nside, output_filename):
     plt.scatter(pairs[:, 0], pairs[:, 1], s=1, label=f"nside {nside}")
     plt.xlabel(r"Mean Redshift, $z_i$ (within each pixel)")
     plt.ylabel(r"Mean Redshift, $z_j$ (in neighboring pixels)")
-    plt.title(f"Pairs of Mean Redshifts and Their Neighboring Mean Redshifts in nside={nside}")
+    plt.title(
+        f"Pairs of Mean Redshifts and Their Neighboring Mean Redshifts in nside={nside}"
+    )
     plt.legend()
     plt.grid(True)
     plt.show()
@@ -835,7 +898,9 @@ def visualize_healpix_map_z_cgal(healpix_maps, nsides, output_filename):
         plt.close()
 
 
-def visualize_pearson_correlation_vs_square_degree_zgal(correlations, nsides, output_filename):
+def visualize_pearson_correlation_vs_square_degree_zgal(
+    correlations, nsides, output_filename
+):
     """
     Visualize the Pearson correlation coefficient against the pixel area in square degrees
     and compare the curve across multiple redshift bins.
@@ -865,6 +930,7 @@ def visualize_pearson_correlation_vs_square_degree_zgal(correlations, nsides, ou
     plt.savefig(f"{output_filename}Pearson_correlation_vs_square_degree_zgal.png")
     plt.close()
 
+
 def visualize_pearson_correlation_vs_nsides_zgal(correlations, nsides, output_filename):
     """
     Visualize the Pearson correlation coefficient against the pixel area in square degrees
@@ -892,6 +958,7 @@ def visualize_pearson_correlation_vs_nsides_zgal(correlations, nsides, output_fi
     plt.savefig(f"{output_filename}Pearson_correlation_vs_nsides_zgal.png")
     plt.close()
 
+
 def plot_fitted_correlation(pixel_areas, correlations, r0, gamma, output_filename):
     """
     Plot the Pearson correlation coefficients and the fitted power law model.
@@ -906,10 +973,16 @@ def plot_fitted_correlation(pixel_areas, correlations, r0, gamma, output_filenam
     fitted_correlations = exponential_model(separations, r0, gamma)
 
     plt.figure(figsize=(10, 6))
-    plt.scatter(separations, correlations, color='blue', label='Observed Correlations')
-    plt.plot(separations, fitted_correlations, color='red', linestyle='--', label=f'Fitted Model: $r_0={r0:.4f}$, $\\gamma={gamma:.4f}$')
-    #plt.xscale('log')
-    #plt.yscale('log')
+    plt.scatter(separations, correlations, color="blue", label="Observed Correlations")
+    plt.plot(
+        separations,
+        fitted_correlations,
+        color="red",
+        linestyle="--",
+        label=f"Fitted Model: $r_0={r0:.4f}$, $\\gamma={gamma:.4f}$",
+    )
+    # plt.xscale('log')
+    # plt.yscale('log')
     plt.xlabel("Angular Separation (radians)")
     plt.ylabel("Pearson Correlation Coefficient")
     plt.title("Fitted Pearson Correlation Coefficient vs Angular Separation")
@@ -918,31 +991,70 @@ def plot_fitted_correlation(pixel_areas, correlations, r0, gamma, output_filenam
     plt.savefig(f"{output_filename}fitted_pearson_correlation.png")
     plt.show()
     plt.close()
+
+def visualize_dispersion_test_vs_degree(dispersion_stats, nsides, output_filename):
+    """
+    Visualize the dispersion statistic (variance-to-mean ratio) against angular scale (in degrees).
+
+    Parameters:
+    dispersion_stats (numpy.ndarray): Array of dispersion statistics for each nside.
+    nsides (list): List of nside values.
+    output_filename (str): Path to save the output plot.
+    """
+    output_directory = os.path.join(output_filename, "Dispersion_Test/")
+    if not os.path.exists(output_directory):
+        os.makedirs(output_directory)
+
+    # Calculate the angular scale (in degrees) as the square root of the pixel area
+    pixel_area_sqdeg = [hp.nside2pixarea(nside, degrees=True) for nside in nsides]
+    angular_scale_deg = np.sqrt(pixel_area_sqdeg)
+
+    plt.figure(figsize=(10, 6))
+    plt.plot(angular_scale_deg, dispersion_stats, marker='o', linestyle='-', color='blue')
+    #plt.axhline(y=1, color='red', linestyle='--', label='Poisson Process (Var/Mean = 1)')
+    plt.xlabel("Angular Scale (Degrees)")
+    plt.ylabel("Variance-to-Mean Ratio (Dispersion Statistic)")
+    plt.title("Dispersion Test: Variance-to-Mean Ratio vs Angular Scale")
+    plt.legend()
+    plt.grid(True)
+    plt.xscale("log")
+    plt.show()
+    plt.savefig(f"{output_directory}dispersion_test_vs_degree.png")
+    plt.close()
+
 """
 Main function
 """
+
+
 @check_memory(threshold=0.8)
 def main():
     """
     The main function of the script.
     """
     # Part 1: Read the input data
-    yaml_file = "/home/rintaro/code/inlabru_nbody/config/micecat2_data_Pearson_correl_coeff_100.yml"
+    plt.ioff()
+    yaml_file = "/Users/r.kanaki/code/inlabru_nbody/config/micecat2_data_Pearson_correl_coeff_100.yml"
     config = read_yaml(yaml_file)
     catalog_filename = config["data"]["input_file"]
     output_filename = config["data"]["output_file"]
     nsides = config["parameters"]["nsides"]
 
-    data_gal = measure_time(read_pandas)(catalog_filename, ["unique_gal_id"], chunksize=200_000_000)
+    data_gal = measure_time(read_pandas)(
+        catalog_filename, ["unique_gal_id"], chunksize=200_000_000
+    )
     z = data_gal["z_cgal"]
 
     # Part 2: Generate the Healpix maps
     Healpix_maps_zgal = measure_time(Healpix_map_z_cgal)(data_gal, nsides)
+    #visualize_healpix_map_z_cgal(Healpix_maps_zgal, nsides, output_filename)
     del data_gal, z
     gc.collect()
 
     # Part 3: Calculate the Pearson correlation coefficient
-    measure_time(visualize_mean_variance_zgal)(Healpix_maps_zgal, nsides, output_filename)
+    # measure_time(visualize_mean_variance_zgal)(Healpix_maps_zgal, nsides, output_filename)
+    dispersion_stats = measure_time(calculate_dispersion)(Healpix_maps_zgal, nsides)
+    measure_time(visualize_dispersion_test_vs_degree)(dispersion_stats, nsides, output_filename)
     Pearson_correlation_zgal = measure_time(make_list_Pearson_correlation_zgal)(Healpix_maps_zgal, nsides, output_filename)
 
     # Part 4: Fit the Power Law Model
@@ -950,12 +1062,16 @@ def main():
     r0, gamma = fit_power_law(pixel_area_sqdeg, Pearson_correlation_zgal)
 
     # Part 5: Visualize the Fitted Model
-    if r0 is not None and gamma is not None:
-        plot_fitted_correlation(pixel_area_sqdeg, Pearson_correlation_zgal, r0, gamma, output_filename)
+    # if r0 is not None and gamma is not None:
+    plot_fitted_correlation(pixel_area_sqdeg, Pearson_correlation_zgal, r0, gamma, output_filename)
 
     # Part 6: Additional Visualizations
     measure_time(visualize_pearson_correlation_vs_square_degree_zgal)(Pearson_correlation_zgal, nsides, output_filename)
     measure_time(visualize_pearson_correlation_vs_nsides_zgal)(Pearson_correlation_zgal, nsides, output_filename)
+    
+
+
+
 
 if __name__ == "__main__":
     main = measure_time(main)
