@@ -93,4 +93,14 @@ target/
 /models/
 
 # exclude data from source control by default
-# /data/
+# /data/data/micecat2_GC/micecat2_data_100.csv.bz2
+data/RV_Test/rs_256_DES_mag.csv.bz2
+# Exclude specific files
+data/micecat2_GC/micecat2_data_100.csv.bz2
+data/RV_Test/rs_256_DES_mag.csv.bz2
+
+# Exclude an entire directory
+logs/
+
+# Exclude all files of a certain type
+*.bz2
