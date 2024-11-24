@@ -558,33 +558,51 @@ def visualize_healpix_gnom_view(
 
 def plot_histogram_galaxies(healpix_map, nsides, output_filename):
     """
-    Plots a histogram of the number of galaxies in each HEALPix pixel.
+    Plots a histogram of the number of galaxies in each HEALPix pixel, excluding pixels with zero counts.
+
     Parameters:
         healpix_map (dict): A dictionary containing the HEALPix maps for each redshift bin.
         nsides (list): A list of HEALPix resolution parameters for each redshift bin.
         output_filename (str): The path to the output file.
     """
-    output_filename = os.path.join(
-        output_filename, "Histogram_counts/"
-    )  # Create a directory to store the output images
-    if not os.path.exists(output_filename):  # Check if the directory exists
-        os.makedirs(output_filename)
+    output_dir = os.path.join(output_filename, "Histogram_counts/")
+    
+    # Ensure the output directory exists
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+
     for i in range(len(healpix_map)):
         print(f"Processing Histogram bin {i}")
-        print(
-            f"healpix_map[{i}] keys: {list(healpix_map[i].keys())}"
-        )  # Check the keys in the map
+        print(f"healpix_map[{i}] keys: {list(healpix_map[i].keys())}")
+
         for nside in nsides:
             print(f"Processing Histogram nside {nside}")
+            
+            # Get the non-zero values for the current map
+            non_zero_values = healpix_map[i][nside][healpix_map[i][nside] > 0]
+            if len(non_zero_values) == 0:
+                print(f"No non-zero values found for bin {i} and nside {nside}. Skipping.")
+                continue
+            
+            # Calculate mean and variance
+            mean_count = np.mean(non_zero_values)
+            variance_count = np.var(non_zero_values)
+            
+            # Plot histogram
             plt.figure(figsize=(10, 6))
-            mean_count = np.mean(healpix_map[i][nside][healpix_map[i][nside] > 0])
-            variance_count = np.var(healpix_map[i][nside][healpix_map[i][nside] > 0])
+            plt.axvline(
+                mean_count,
+                color="red",
+                linestyle="dashed",
+                linewidth=1.5,
+                label=f"$\\mu$: {mean_count:.2f}",
+            )
             plt.axvline(
                 mean_count + np.sqrt(variance_count),
                 color="green",
                 linestyle="dashed",
                 linewidth=1.5,
-                label=f"$\sigma$: {np.sqrt(variance_count):.2f}",
+                label=f"$\\mu \\pm \\sigma$: {np.sqrt(variance_count):.2f}",
             )
             plt.axvline(
                 mean_count - np.sqrt(variance_count),
@@ -592,16 +610,9 @@ def plot_histogram_galaxies(healpix_map, nsides, output_filename):
                 linestyle="dashed",
                 linewidth=1.5,
             )
-            plt.axvline(
-                mean_count,
-                color="red",
-                linestyle="dashed",
-                linewidth=1.5,
-                label=f"$\mu$: {mean_count:.2f}",
-            )
             plt.legend()
             plt.hist(
-                healpix_map[i][nside][healpix_map[i][nside] > 0],
+                non_zero_values,
                 bins=30,
                 color="blue",
                 alpha=0.7,
@@ -610,12 +621,12 @@ def plot_histogram_galaxies(healpix_map, nsides, output_filename):
             )
             plt.xlabel("Counts per Healpix Pixel")
             plt.ylabel("Frequency")
-            plt.title("Histogram of Counts per Healpix Pixel")
+            plt.title(f"Histogram of Counts per Healpix Pixel (Bin {i}, Nside {nside})")
             plt.grid(True)
-            plt.show()
-            plt.savefig(
-                f"{output_filename}histoghram_galaxy_counts_bin_{i}_nside_{nside}.png"
-            )
+
+            # Save and close the plot
+            output_path = os.path.join(output_dir, f"histogram_galaxy_counts_bin_{i}_nside_{nside}.png")
+            plt.savefig(output_path)
             plt.close()
 
 

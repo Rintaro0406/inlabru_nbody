@@ -1,0 +1,14 @@
+input_paths:
+  high_density: "/Users/r.kanaki/code/inlabru_nbody/output/randomforest_crossval_dev_v2/high_density.csv.bz2"
+  low_density: "/Users/r.kanaki/code/inlabru_nbody/output/randomforest_crossval_dev_v2/low_density.csv.bz2"
+  random_sample: "/Users/r.kanaki/code/inlabru_nbody/output/randomforest_crossval_dev_v2/random_sampling.csv.bz2"
+
+output_paths:
+  base_dir: "/Users/r.kanaki/code/inlabru_nbody/output/randomforest_crossval_dev_v2/RS_result"
+
+parameters:
+  n_estimators: 100
+  max_depth: 20
+  test_size: 0.2
+  random_state: 42
+  nside: 32
