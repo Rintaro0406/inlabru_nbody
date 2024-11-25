@@ -1,0 +1,5 @@
+input:
+  json_file: "/Users/r.kanaki/code/inlabru_nbody/output/randomforest_crossval_dev_v2/RS_result/results_with_pvalues.json"
+
+output:
+  directory: "/Users/r.kanaki/code/inlabru_nbody/output/randomforest_crossval_dev_v2/heatmap"
