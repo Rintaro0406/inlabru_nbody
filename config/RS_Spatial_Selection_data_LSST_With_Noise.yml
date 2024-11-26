@@ -1,0 +1,7 @@
+input_path: "/Users/r.kanaki/code/inlabru_nbody/data/RV_Test/rs_16_DES_mag.csv.bz2"
+output_path: 
+  plots: "/Users/r.kanaki/code/inlabru_nbody/output/LSST_Spatial_Sampling_With_Noise/plots"
+  high: "/Users/r.kanaki/code/inlabru_nbody/output/LSST_Spatial_Sampling_With_Noise/high_density.csv.bz2"
+  low: "/Users/r.kanaki/code/inlabru_nbody/output/LSST_Spatial_Sampling_With_Noise/low_density.csv.bz2"
+  random: "/Users/r.kanaki/code/inlabru_nbody/output/LSST_Spatial_Sampling_With_Noise/random_sampling.csv.bz2"
+nside: 32

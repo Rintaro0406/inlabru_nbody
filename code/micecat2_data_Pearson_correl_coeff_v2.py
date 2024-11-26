@@ -770,7 +770,7 @@ def main():
 
     # Read the YAML file
     yaml_file = (
-        "/home/rintaro/code/inlabru_nbody/config/micecat2_data_Pearson_correl_coeff.yml"
+        "/home/rintaro/code/inlabru_nbody/config/RS_Spatial_Selection_data_LSST_With_Noise.yml"
     )
     config = read_yaml(yaml_file)
     # Read the input and output filenames from the YAML file

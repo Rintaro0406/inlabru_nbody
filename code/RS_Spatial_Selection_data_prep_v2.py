@@ -121,11 +121,11 @@ def read_catalog(file_path, index_col=None, chunksize=10000):
         "ra_gal": "float64",
         "dec_gal": "float64",
         "z_cgal": "float64",
-        "des_asahi_full_g_true": "float32",
-        "des_asahi_full_r_true": "float32",
-        "des_asahi_full_i_true": "float32",
-        "des_asahi_full_z_true": "float32",
-        "des_asahi_full_y_true": "float32"
+        "des_asahi_full_g_abs_mag": "float32",
+        "des_asahi_full_r_abs_mag": "float32",
+        "des_asahi_full_i_abs_mag": "float32",
+        "des_asahi_full_z_abs_mag": "float32",
+        "des_asahi_full_y_abs_mag": "float32"
     }
     chunks = []
     for chunk in pd.read_csv(file_path, sep=",", index_col=index_col, comment="#",
@@ -227,15 +227,15 @@ def stratify_data(data, healpix_map, nside):
 
     # Remove unnecessary columns from the subsets
     necessary_columns = ["unique_gal_id", "ra_gal", "dec_gal", "z_cgal",
-                         "des_asahi_full_g_true", "des_asahi_full_r_true",
-                         "des_asahi_full_i_true", "des_asahi_full_z_true",
-                         "des_asahi_full_y_true"]
+                         "des_asahi_full_g_abs_mag", "des_asahi_full_r_abs_mag",
+                         "des_asahi_full_i_abs_mag", "des_asahi_full_z_abs_mag",
+                         "des_asahi_full_y_abs_mag"]
     features = [
-    'des_asahi_full_g_true',
-    'des_asahi_full_r_true',
-    'des_asahi_full_i_true',
-    'des_asahi_full_z_true',
-    'des_asahi_full_y_true'
+    'des_asahi_full_g_abs_mag',
+    'des_asahi_full_r_abs_mag',
+    'des_asahi_full_i_abs_mag',
+    'des_asahi_full_z_abs_mag',
+    'des_asahi_full_y_abs_mag'
 ]       
     high_density_data = high_density_data[necessary_columns]
     low_density_data = low_density_data[necessary_columns]
@@ -365,18 +365,18 @@ def main():
     """
     Main script execution.
     """
-    config = read_yaml_config("/Users/r.kanaki/code/inlabru_nbody/config/RS_Spatial_Selection_data_prep_v2.yml")
+    config = read_yaml_config("/Users/r.kanaki/code/inlabru_nbody/config/RS_Spatial_Selection_data_LSST_With_Noise.yml")
     catalog_path = config["input_path"]
     output_paths = config["output_path"]
     nside = config["nside"]
 
     # Feature and target columns for plotting
     magnitude_features = [
-        "des_asahi_full_g_true",
-        "des_asahi_full_r_true",
-        "des_asahi_full_i_true",
-        "des_asahi_full_z_true",
-        "des_asahi_full_y_true"
+        "des_asahi_full_g_abs_mag",
+        "des_asahi_full_r_abs_mag",
+        "des_asahi_full_i_abs_mag",
+        "des_asahi_full_z_abs_mag",
+        "des_asahi_full_y_abs_mag"
     ]
     redshift_target = "z_cgal"
 
