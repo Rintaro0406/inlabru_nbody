@@ -11,15 +11,13 @@ import psutil
 import sys
 from matplotlib import use
 import seaborn as sns
-
+## Udded the magnitude cut in this code
 # Use non-interactive backend
 use("Agg")
 
 """
 Utility Functions
 """
-
-
 def measure_time(func):
     """
     A decorator to measure the execution time of a function.
@@ -187,7 +185,8 @@ Part 3: Data Stratification
 """
 def stratify_data(data, healpix_map, nside):
     """
-    Stratifies data into high-density, low-density, and random subsets, ensuring no boundary pixels are included.
+    Stratifies data into high-density, low-density, and random subsets,
+    ensuring no boundary pixels are included and applying magnitude cut below 22.
 
     Parameters:
         data (pd.DataFrame): Input data containing galaxy information.
@@ -197,6 +196,15 @@ def stratify_data(data, healpix_map, nside):
     Returns:
         tuple: (high_density_data, low_density_data, random_sample_data)
     """
+    # Apply magnitude cut: Keep rows where all magnitudes are below 22
+    magnitude_columns = [
+        "des_asahi_full_g_true", "des_asahi_full_r_true",
+        "des_asahi_full_i_true", "des_asahi_full_z_true",
+        "des_asahi_full_y_true"
+    ]
+    magnitude_cut_mask = data["des_asahi_full_i_true"] > 22
+    data = data[magnitude_cut_mask]
+
     # Filter out boundary pixels by ensuring RA/Dec are within 0 to 90 degrees
     valid_ra_dec_mask = (data["ra_gal"] >= 0) & (data["ra_gal"] <= 90) & \
                         (data["dec_gal"] >= 0) & (data["dec_gal"] <= 90)
@@ -226,17 +234,7 @@ def stratify_data(data, healpix_map, nside):
     low_density_data = data_filtered[data_filtered["pixel_index"].isin(low_density_pixels)]
 
     # Remove unnecessary columns from the subsets
-    necessary_columns = ["unique_gal_id", "ra_gal", "dec_gal", "z_cgal",
-                         "des_asahi_full_g_true", "des_asahi_full_r_true",
-                         "des_asahi_full_i_true", "des_asahi_full_z_true",
-                         "des_asahi_full_y_true"]
-    features = [
-    'des_asahi_full_g_true',
-    'des_asahi_full_r_true',
-    'des_asahi_full_i_true',
-    'des_asahi_full_z_true',
-    'des_asahi_full_y_true'
-]       
+    necessary_columns = ["unique_gal_id", "ra_gal", "dec_gal", "z_cgal"] + magnitude_columns
     high_density_data = high_density_data[necessary_columns]
     low_density_data = low_density_data[necessary_columns]
 
@@ -271,6 +269,31 @@ def save_datasets(high_data, low_data, random_data, output_paths):
 4. Additional Plot Functions
 """
 
+def plot_magnitude_distributions_i(data, feature, output_path, subset_name="all", magnitude_cut=22):
+    """
+    Plot distribution of the observed i-band magnitude with a vertical line for the magnitude cut.
+
+    Parameters:
+        data (pd.DataFrame): The dataset to plot.
+        feature (str): The magnitude feature column to plot.
+        output_path (str): Path to save the plot.
+        subset_name (str): Name of the subset (e.g., "all", "high_density").
+        magnitude_cut (float): The magnitude cut value to highlight on the plot.
+    """
+    plt.figure(figsize=(10, 6))
+    sns.histplot(data[feature], bins=50, kde=True, label=f"{feature} (i-band)", alpha=0.6)
+
+    # Add a vertical line to indicate the magnitude cut
+    plt.axvline(magnitude_cut, color="red", linestyle="--", label=f"Mag. Cut ({magnitude_cut})")
+
+    plt.xlabel("Magnitude")
+    plt.ylabel("Frequency")
+    plt.title(f"Distribution of {feature} Magnitude ({subset_name.capitalize()})")
+    plt.legend()
+    plt.grid()
+    plt.savefig(f"{output_path}/magnitude_distributions_i_band_{feature}_{subset_name}.png")
+    plt.close()
+
 def plot_magnitude_distributions(data, features, output_path, subset_name="all"):
     """
     Plot distributions of observed magnitudes.
@@ -291,7 +314,7 @@ def plot_magnitude_distributions(data, features, output_path, subset_name="all")
     plt.grid()
     plt.savefig(f"{output_path}/magnitude_distributions_{subset_name}.png")
     plt.close()
-
+    
 def plot_color_color_diagram(data, output_path, subset_name="all"):
     """
     Plot color-color diagram of galaxy color indices (e.g., g-r, r-i) with a color bar for true redshifts.
@@ -440,11 +463,15 @@ def main():
     save_datasets(high_data, low_data, random_data, output_paths)
 
     # Plot magnitude distributions
+   # Plot magnitude distributions for the i-band
+    plot_magnitude_distributions_i(data, "des_asahi_full_i_true", output_paths["plots"], subset_name="all", magnitude_cut=22)
+    #plot_magnitude_distributions_i(high_data, "des_asahi_full_i_true", output_paths["plots"], subset_name="high_density", magnitude_cut=22)
+    #plot_magnitude_distributions_i(low_data, "des_asahi_full_i_true", output_paths["plots"], subset_name="low_density", magnitude_cut=22)
+    #plot_magnitude_distributions_i(random_data, "des_asahi_full_i_true", output_paths["plots"], subset_name="random", magnitude_cut=22)
     plot_magnitude_distributions(data, magnitude_features, output_paths["plots"], subset_name="all")
     plot_magnitude_distributions(high_data, magnitude_features, output_paths["plots"], subset_name="high_density")
     plot_magnitude_distributions(low_data, magnitude_features, output_paths["plots"], subset_name="low_density")
     plot_magnitude_distributions(random_data, magnitude_features, output_paths["plots"], subset_name="random")
-
     # Plot pairwise relationships
     plot_pairwise_relationships(data, magnitude_features, redshift_target, output_paths["plots"], subset_name="all")
     plot_pairwise_relationships(high_data, magnitude_features, redshift_target, output_paths["plots"], subset_name="high_density")

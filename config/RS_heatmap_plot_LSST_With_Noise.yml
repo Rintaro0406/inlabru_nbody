@@ -1,5 +1,5 @@
 input:
-  json_file: "/Users/r.kanaki/code/inlabru_nbody/output/LSST_Spatial_Sampling_With_Noise/RS_result/results_with_pvalues.json"
+  json_file: "/Users/r.kanaki/code/inlabru_nbody/output/LSST_Sampling_DES_true/RS_result/results_with_pvalues.json"
 
 output:
-  directory: "/Users/r.kanaki/code/inlabru_nbody/output/LSST_Spatial_Sampling_With_Noise/heatmap"
+  directory: "/Users/r.kanaki/code/inlabru_nbody/output/LSST_Sampling_DES_true/RS_result/heatmap"

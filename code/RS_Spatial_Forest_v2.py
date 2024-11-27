@@ -213,8 +213,8 @@ def main():
     os.makedirs(output_dir, exist_ok=True)
 
     datasets = load_datasets(input_paths)
-    features = ["des_asahi_full_g_abs_mag", "des_asahi_full_r_abs_mag", "des_asahi_full_i_abs_mag",
-                "des_asahi_full_z_abs_mag", "des_asahi_full_y_abs_mag"]
+    features = ["des_asahi_full_g_true", "des_asahi_full_r_true", "des_asahi_full_i_true",
+                "des_asahi_full_z_true", "des_asahi_full_y_true"]
     target = "z_cgal"
     nside = config["parameters"]["nside"]
 

@@ -1,10 +1,10 @@
 input_paths:
-  high_density: "/Users/r.kanaki/code/inlabru_nbody/output/LSST_Spatial_Sampling_With_Noise/high_density.csv.bz2"
-  low_density: "/Users/r.kanaki/code/inlabru_nbody/output/LSST_Spatial_Sampling_With_Noise/low_density.csv.bz2"
-  random_sample: "/Users/r.kanaki/code/inlabru_nbody/output/LSST_Spatial_Sampling_With_Noise/random_sampling.csv.bz2"
+  high_density: "/Users/r.kanaki/code/inlabru_nbody/output/LSST_Sampling_DES_true_22_magcut/high_density.csv.bz2"
+  low_density: "/Users/r.kanaki/code/inlabru_nbody/output/LSST_Sampling_DES_true_22_magcut/low_density.csv.bz2"
+  random_sample: "/Users/r.kanaki/code/inlabru_nbody/output/LSST_Sampling_DES_true_22_magcut/random_sampling.csv.bz2"
 
 output_paths:
-  base_dir: "/Users/r.kanaki/code/inlabru_nbody/output/LSST_Spatial_Sampling_With_Noise/RS_result"
+  base_dir: "/Users/r.kanaki/code/inlabru_nbody/output/LSST_Sampling_DES_true_22_magcut/RS_result"
 
 parameters:
   n_estimators: 100

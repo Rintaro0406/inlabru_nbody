@@ -48,6 +48,7 @@ def create_performance_matrices(results):
     mse_matrix = pd.DataFrame(index=indices, columns=indices)
     r2_matrix = pd.DataFrame(index=indices, columns=indices)
     mean_bias_matrix = pd.DataFrame(index=indices, columns=indices)
+    var_matrix = pd.DataFrame(index=indices, columns=indices)
 
     for key, value in results.items():
         train, test = key.split("_train_")
@@ -56,11 +57,13 @@ def create_performance_matrices(results):
         mse_matrix.loc[train, test] = value["MSE"]
         r2_matrix.loc[train, test] = value["R2"]
         mean_bias_matrix.loc[train, test] = np.mean(value["Delta_z"])
+        var_matrix.loc[train, test] = np.var(value["Delta_z"])
 
     return (
         mse_matrix.astype(float).fillna(0),
         r2_matrix.astype(float).fillna(0),
         mean_bias_matrix.astype(float).fillna(0),
+        var_matrix.astype(float).fillna(0)
     )
 
 def perform_statistical_tests(results):
@@ -126,12 +129,13 @@ def main(config_path):
     results = load_json_results(json_path)
 
     # Create performance matrices
-    mse_matrix, r2_matrix, mean_bias_matrix = create_performance_matrices(results)
+    mse_matrix, r2_matrix, mean_bias_matrix, var_matrix = create_performance_matrices(results)
 
     # Plot performance metrics
     plot_heatmap(mse_matrix, "MSE Heatmap", os.path.join(output_dir, "mse_heatmap.png"))
     plot_heatmap(r2_matrix, "R^2 Heatmap", os.path.join(output_dir, "r2_heatmap.png"))
     plot_heatmap(mean_bias_matrix, "Mean Bias Heatmap", os.path.join(output_dir, "mean_bias_heatmap.png"))
+    plot_heatmap(var_matrix, "Variance Heatmap", os.path.join(output_dir, "variance_heatmap.png"))
 
     # Perform statistical tests
     (
@@ -147,7 +151,7 @@ def main(config_path):
     # Plot statistical results
     plot_heatmap(t_stat_matrix, "Student T-Statistic Heatmap", os.path.join(output_dir, "t_stat_heatmap.png"))
     plot_heatmap(p_value_matrix, "Student T-Test P-Value Heatmap", os.path.join(output_dir, "p_value_heatmap.png"))
-    plot_heatmap(variance_matrix, "Variance Difference Heatmap", os.path.join(output_dir, "variance_heatmap.png"))
+    plot_heatmap(variance_matrix, "Variance Difference Heatmap", os.path.join(output_dir, "variance_diff_heatmap.png"))
     plot_heatmap(bartlett_stat_matrix, "Bartlett Statistic Heatmap", os.path.join(output_dir, "bartlett_stat_heatmap.png"))
     plot_heatmap(bartlett_p_matrix, "Bartlett P-Value Heatmap", os.path.join(output_dir, "bartlett_p_heatmap.png"))
     plot_heatmap(welch_t_stat_matrix, "Welch T-Statistic Heatmap", os.path.join(output_dir, "welch_t_stat_heatmap.png"))
