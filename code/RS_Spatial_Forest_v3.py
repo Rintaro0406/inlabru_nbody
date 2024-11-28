@@ -219,6 +219,20 @@ def plot_density_heatmap(y_test, y_pred, output_path, train_key, test_key):
     plt.savefig(f"{output_path}/density_true_vs_predicted_{train_key}_train_{test_key}_test.png")
     plt.close()
 
+def plot_feature_importance(importances, features, output_path, train_key):
+    """
+    Feature importance plot.
+    """
+    plt.figure(figsize=(8, 5))
+    sns.barplot(x=importances, y=features, palette="viridis")
+    plt.xlabel("Feature Importance", fontsize=12)
+    plt.ylabel("Features", fontsize=12)
+    plt.title(f"Feature Importance ({train_key} Train)", fontsize=14)
+    plt.grid()
+    plt.tight_layout()
+    plt.savefig(f"{output_path}/feature_importance_{train_key}.png", dpi=300)
+    plt.close()
+
 """
 Model Training and Evaluation
 """
@@ -247,7 +261,7 @@ def evaluate_model(y_test, y_pred, test_data, nside, output_path, train_key, tes
     mse = mean_squared_error(y_test, y_pred)
     r2 = r2_score(y_test, y_pred)
     delta_z = y_test - y_pred
-    test_data["delta_z"] = delta_z
+    #test_data["delta_z"] = delta_z
     var= np.var(delta_z)
     skewness = np.mean(delta_z) / np.std(delta_z)
     kurtosis = np.mean(delta_z ** 4) / var ** 2
@@ -263,6 +277,7 @@ def evaluate_model(y_test, y_pred, test_data, nside, output_path, train_key, tes
     plot_density_heatmap(y_test, y_pred, output_path, train_key, test_key)
 
     # HEALPix Map of Residuals
+    test_data["delta_z"] = delta_z
     visualize_healpix_map(test_data, nside, "Residual Map (Δz)", f"{output_path}/healpix_residuals_{train_key}_train_{test_key}_test.png")
     return mse, r2, delta_z, var, skewness, kurtosis
 
@@ -336,16 +351,22 @@ def main():
 
     for train_key, train_data in datasets.items():
         print(f"Processing training dataset: {train_key}")
-        X_train = train_data[features]
+        X_train = (train_data[features] - train_data[features].mean()) / train_data[
+            features
+        ].std()
         y_train = train_data[target]
 
         # Train both Random Forest and 1NN models
         rf = train_random_forest(X_train, y_train, config)
+        # Plot feature importance
+        plot_feature_importance(
+            rf.feature_importances_, features, rf_output_dir, train_key
+        )
         nn = train_1nn(X_train, y_train, config)
 
         for test_key, test_data in datasets.items():
             print(f"Processing testing dataset: {test_key}")
-            X_test = test_data[features]
+            X_test = (test_data[features] - test_data[features].mean()) / test_data[features].std()
             y_test = test_data[target]
 
             # Random Forest evaluation
