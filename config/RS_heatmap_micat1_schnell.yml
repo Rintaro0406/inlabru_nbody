@@ -3,7 +3,7 @@ input:
 
 output:
   directory: "/Users/r.kanaki/code/inlabru_nbody/output/micecat1_schnell/heatmap/"
-  true:
+  "true":
     heatmap_directory: "/Users/r.kanaki/code/inlabru_nbody/output/micecat1_schnell/heatmap/true/"
     results_directory: "/Users/r.kanaki/code/inlabru_nbody/output/micecat1_schnell/heatmap/true/results/"
   realization:
