@@ -1,0 +1,11 @@
+input:
+  json_file: "/Users/r.kanaki/code/inlabru_nbody/output/micecat1_full/RS_result/results_with_pvalues.json"
+
+output:
+  directory: "/Users/r.kanaki/code/inlabru_nbody/output/micecat1_full/heatmap/"
+  "true":
+    heatmap_directory: "/Users/r.kanaki/code/inlabru_nbody/output/micecat1_full/heatmap/true/"
+    results_directory: "/Users/r.kanaki/code/inlabru_nbody/output/micecat1_full/heatmap/true/results/"
+  realization:
+    heatmap_directory: "/Users/r.kanaki/code/inlabru_nbody/output/micecat1_full/heatmap/realization/"
+    results_directory: "/Users/r.kanaki/code/inlabru_nbody/output/micecat1_full/heatmap/realization/results/"

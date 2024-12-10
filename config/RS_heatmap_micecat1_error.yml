@@ -1,0 +1,11 @@
+input:
+  json_file: "/Users/r.kanaki/code/inlabru_nbody/output/micecat1_schnell_with_error/RS_result/results_new_experiment.json"
+
+output:
+  directory: "/Users/r.kanaki/code/inlabru_nbody/output/micecat1_schnell_with_error/heatmap_binned/"
+  "true":
+    heatmap_directory: "/Users/r.kanaki/code/inlabru_nbody/output/micecat1_schnell_with_error/heatmap_binned/true/"
+    results_directory: "/Users/r.kanaki/code/inlabru_nbody/output/micecat1_schnell_with_error/heatmap_binned/true/results/"
+  realization:
+    heatmap_directory: "/Users/r.kanaki/code/inlabru_nbody/output/micecat1_schnell_with_error/heatmap_binned/realization/"
+    results_directory: "/Users/r.kanaki/code/inlabru_nbody/output/micecat1_schnell_with_error/heatmap_binned/realization/results/"

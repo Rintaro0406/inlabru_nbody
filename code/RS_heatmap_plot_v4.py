@@ -19,19 +19,55 @@ def load_config(yaml_file):
         return yaml.safe_load(file)
 
 
-def plot_heatmap(data, title, output_path, file_name):
-    """Generate and save a heatmap."""
+def plot_heatmap(data, title, output_path, file_name, x_labels=None, y_labels=None):
+    if not isinstance(data, np.ndarray):
+        data = np.array(data)
+
+    data = np.nan_to_num(data.astype(float))  # Ensure numeric
+
     plt.figure(figsize=(10, 8))
     sns.heatmap(
-        data, annot=True, fmt=".4f", cmap="coolwarm", cbar=True, square=True
+        data,
+        annot=True,
+        fmt=".4f",
+        cmap="coolwarm",
+        cbar=True,
+        square=True,
+        xticklabels=x_labels,
+        yticklabels=y_labels
     )
     plt.title(title, fontsize=16)
     plt.xlabel("Test Dataset", fontsize=14)
     plt.ylabel("Train Dataset", fontsize=14)
+    plt.xticks(rotation=45, ha='right')  # Rotate x-labels if desired
+    plt.yticks(rotation=0)
     plt.tight_layout()
     os.makedirs(output_path, exist_ok=True)
     plt.savefig(os.path.join(output_path, file_name), dpi=300)
     plt.close()
+
+def extract_train_test_keys(key, model):
+    """
+    Extract train_key and test_key based on the model name.
+    """
+    parts = key.split("_")
+    model_parts = model.split("_")
+    model_len = len(model_parts)
+
+    # For 1nn:
+    # parts: [0:"1nn", 1:"high", 2:"density", 3:"train", 4:"low", 5:"density", 6:"test", 7:"true"]
+    # train_key = parts[1]+"_"+parts[2]
+    # test_key = parts[4]+"_"+parts[5]
+
+    # For random_forest:
+    # parts: [0:"random", 1:"forest", 2:"high", 3:"density", 4:"train", 5:"high", 6:"density", 7:"test", 8:"true"]
+    # train_key = parts[2]+"_"+parts[3]
+    # test_key = parts[5]+"_"+parts[6]
+
+    train_key = parts[model_len] + "_" + parts[model_len+1]
+    test_key = parts[model_len+3] + "_" + parts[model_len+4]
+
+    return train_key, test_key
 
 def generate_heatmaps(results, mode, model, metric, output_dir):
     """Generate heatmaps for a specific mode, model, and metric."""
@@ -39,11 +75,9 @@ def generate_heatmaps(results, mode, model, metric, output_dir):
     print(f"Processing {model} for {mode} mode, metric: {metric}")
 
     for key, values in results.items():
-        # Split the string key to extract components
+        # Check if key matches model and mode
         if key.startswith(model) and key.endswith(mode):
-            parts = key.split("_")
-            train_key = parts[1] + "_" + parts[2]  # Full train key
-            test_key = parts[4] + "_" + parts[5]  # Full test key
+            train_key, test_key = extract_train_test_keys(key, model)
             metric_value = values.get(metric, None)
 
             # Add the metric value to the data dictionary
@@ -56,16 +90,22 @@ def generate_heatmaps(results, mode, model, metric, output_dir):
         print(f"No data found for {mode} - {model} - {metric}. Skipping heatmap.")
         return
 
-    # Convert to matrix form
-    train_keys = sorted(data.keys())  # Ensure consistent row keys
-    test_keys = sorted(set(key for train_data in data.values() for key in train_data))  # Ensure consistent column keys
+    # Extract all keys used for train and test
+    all_train_keys = set(data.keys())
+    all_test_keys = set()
+    for t_data in data.values():
+        all_test_keys.update(t_data.keys())
+
+    train_keys = sorted(all_train_keys)
+    test_keys = sorted(all_test_keys)
+
     print(f"Train Keys: {train_keys}")
     print(f"Test Keys: {test_keys}")
 
     heatmap_matrix = np.full((len(train_keys), len(test_keys)), np.nan)
-    for i, train_key in enumerate(train_keys):
-        for j, test_key in enumerate(test_keys):
-            heatmap_matrix[i, j] = data.get(train_key, {}).get(test_key, np.nan)
+    for i, tr_key in enumerate(train_keys):
+        for j, te_key in enumerate(test_keys):
+            heatmap_matrix[i, j] = data.get(tr_key, {}).get(te_key, np.nan)
             print(f"Matrix[{i}][{j}] = {heatmap_matrix[i, j]}")
 
     if np.isnan(heatmap_matrix).all():
@@ -78,108 +118,140 @@ def generate_heatmaps(results, mode, model, metric, output_dir):
     # Plot and save the heatmap
     title = f"Heatmap of {metric} for {model.capitalize()} ({mode.capitalize()} Mode)"
     file_name = f"heatmap_{model}_{metric}_{mode}.png"
-    plot_heatmap(heatmap_matrix, title, output_dir, file_name)
+    plot_heatmap(
+        heatmap_matrix,
+        title,
+        output_dir,
+        file_name,
+        x_labels=test_keys,
+        y_labels=train_keys
+    )
 
-def perform_statistical_tests(results, output_dir):
+def perform_statistical_tests(results, mode, model, output_dir):
     """
-    Perform statistical tests and generate heatmaps for 1NN and Random Forest models for 'true' and 'realization'.
+    Perform statistical tests and generate heatmaps for a given mode and model.
+    Also, create a heatmap for the mean of Delta_z.
     """
     indices = ["high_density", "low_density", "random_sample"]
-    models = ["1nn", "random_forest"]
-    modes = ["true", "realization"]
     delta_z_data = {}
 
-    # Parse results and populate delta_z_data
-    for key, value in results.items():
-        try:
+    # Extract Delta_z data for the given mode and model
+    for key, values in results.items():
+        if key.startswith(model) and key.endswith(mode):
             parts = key.split("_")
-            model = parts[0]  # e.g., "random_forest" or "1nn"
-            mode = parts[-1]  # "true" or "realization"
-            train_key = parts[1] + "_" + parts[2]  # Full train key
-            test_key = parts[4] + "_" + parts[5]  # Full test key
-            # Validate model, train, test, and mode
-            if model not in models or train_key not in indices or test_key not in indices or mode not in modes:
-                print(f"Skipping key '{key}': Unrecognized model, train/test dataset, or mode.")
+            if len(parts) < 6 or "train" not in parts or "test" not in parts:
+                print(f"Invalid key format: {key}. Skipping.")
                 continue
 
-            # Save delta_z data for statistical tests
-            delta_z_data[f"{model}_{train_key}_train_{test_key}_test_{mode}"] = np.array(value["Delta_z"])
+            train_key, test_key = extract_train_test_keys(key, model)
 
-        except Exception as e:
-            print(f"Error processing key '{key}': {e}")
-            continue
+            if train_key in indices and test_key in indices:
+                delta_z = values.get("Delta_z", [])
+                if delta_z:
+                    delta_z_data[(train_key, test_key)] = np.array(delta_z)
+                else:
+                    print(f"Missing Delta_z for {key}. Skipping this pair.")
 
-    # Initialize matrices
-    matrices = {
-        model: {
-            mode: {
-                "student_t_stat": pd.DataFrame(index=indices, columns=indices),
-                "student_p_value": pd.DataFrame(index=indices, columns=indices),
-                "welch_t_stat": pd.DataFrame(index=indices, columns=indices),
-                "welch_p_value": pd.DataFrame(index=indices, columns=indices),
-                "variance_diff": pd.DataFrame(index=indices, columns=indices),
-                "bartlett_stat": pd.DataFrame(index=indices, columns=indices),
-                "bartlett_p": pd.DataFrame(index=indices, columns=indices),
-            }
-            for mode in modes
-        }
-        for model in models
-    }
+    if not delta_z_data:
+        print(f"No valid Delta_z data found for {model} in {mode} mode. Skipping statistical tests.")
+        return None
 
-    # Perform tests
-    for model in models:
-        for mode in modes:
-            for train1 in indices:
-                for train2 in indices:
-                    key1 = f"{model}_{train1}_train_{train1}_test_{mode}"
-                    key2 = f"{model}_{train2}_train_{train2}_test_{mode}"
+    # --- Create a heatmap for the mean Delta_z ---
+    # Initialize a DataFrame for mean Delta_z
+    # --- Create a heatmap for the mean Delta_z ---
+    mean_delta_z_matrix = pd.DataFrame(index=indices, columns=indices, dtype=float)
+    std_delta_z_matrix = pd.DataFrame(index=indices, columns=indices, dtype=float)
 
-                    if key1 in delta_z_data and key2 in delta_z_data:
-                        delta_z1 = delta_z_data[key1]
-                        delta_z2 = delta_z_data[key2]
+    for train1 in indices:
+        for train2 in indices:
+            dz_values = delta_z_data.get((train1, train2), [])
+            if len(dz_values) > 0:
+                mean_delta_z_matrix.loc[train1, train2] = np.mean(dz_values)
+                std_delta_z_matrix.loc[train1, train2] = np.std(dz_values, ddof=1)  # ddof=1 for sample std.
+            else:
+                mean_delta_z_matrix.loc[train1, train2] = np.nan
+                std_delta_z_matrix.loc[train1, train2] = np.nan
 
-                        # Variance difference
-                        matrices[model][mode]["variance_diff"].loc[train1, train2] = np.var(delta_z1) - np.var(delta_z2)
+    # Plot mean Delta_z heatmap
+    if not mean_delta_z_matrix.isna().all().all():
+        mean_delta_z_matrix_filled = mean_delta_z_matrix.fillna(0)
+        title = f"{model.capitalize()} - Mean Delta_z ({mode.capitalize()})"
+        file_name = f"{model}_mean_Delta_z_{mode}_heatmap.png"
+        plot_heatmap(mean_delta_z_matrix_filled.values, title, output_dir, file_name, 
+                    x_labels=mean_delta_z_matrix_filled.columns, 
+                    y_labels=mean_delta_z_matrix_filled.index)
 
-                        # Student's t-test (assumes equal variances)
-                        student_t_stat, student_p_value = ttest_ind(delta_z1, delta_z2, equal_var=True)
-                        matrices[model][mode]["student_t_stat"].loc[train1, train2] = student_t_stat
-                        matrices[model][mode]["student_p_value"].loc[train1, train2] = student_p_value
+    # Plot std. deviation Delta_z heatmap
+    if not std_delta_z_matrix.isna().all().all():
+        std_delta_z_matrix_filled = std_delta_z_matrix.fillna(0)
+        title = f"{model.capitalize()} - Std. Deviation of Delta_z ({mode.capitalize()})"
+        file_name = f"{model}_std_Delta_z_{mode}_heatmap.png"
+        plot_heatmap(std_delta_z_matrix_filled.values, title, output_dir, file_name,
+                    x_labels=std_delta_z_matrix_filled.columns,
+                    y_labels=std_delta_z_matrix_filled.index)
+        # Optionally save the matrix to CSV
+        csv_file = os.path.join(output_dir, f"{model}_mean_Delta_z_{mode}_matrix.csv")
+        mean_delta_z_matrix.to_csv(csv_file)
+        print(f"Saved Mean Delta_z matrix for {model} ({mode}) to {csv_file}.")
 
-                        # Welch's t-test (does not assume equal variances)
-                        welch_t_stat, welch_p_value = ttest_ind(delta_z1, delta_z2, equal_var=False)
-                        matrices[model][mode]["welch_t_stat"].loc[train1, train2] = welch_t_stat
-                        matrices[model][mode]["welch_p_value"].loc[train1, train2] = welch_p_value
+    # Initialize 3x3 matrices for statistical results
+    metrics = ["student_t_stat", "student_p_value", "welch_t_stat", "welch_p_value", "variance_diff", "bartlett_stat", "bartlett_p"]
+    matrices = {metric: pd.DataFrame(index=indices, columns=indices) for metric in metrics}
 
-                        # Bartlett's test for equal variances
-                        bartlett_stat, bartlett_p = bartlett(delta_z1, delta_z2)
-                        matrices[model][mode]["bartlett_stat"].loc[train1, train2] = bartlett_stat
-                        matrices[model][mode]["bartlett_p"].loc[train1, train2] = bartlett_p
+    # Perform statistical tests
+    for train1 in indices:
+        for train2 in indices:
+            # Compare (train1, train1) vs (train2, train2)
+            delta_z1 = delta_z_data.get((train1, train1), [])
+            delta_z2 = delta_z_data.get((train2, train2), [])
 
-    # Generate and save heatmaps
-    for model in models:
-        for mode in modes:
-            for metric, matrix in matrices[model][mode].items():
-                # Ensure the matrix is valid and has no missing data
-                if matrix.isnull().values.all():
-                    print(f"No valid data for {model} - {mode} - {metric}. Skipping heatmap.")
-                    continue
+            if len(delta_z1) == 0 or len(delta_z2) == 0:
+                print(f"Missing Delta_z data for {train1} vs {train2}. Skipping statistical tests for this pair.")
+                continue
 
-                matrix.fillna(0, inplace=True)  # Replace NaN with 0
-                title = f"{model.capitalize()} - {metric.replace('_', ' ').title()} ({mode.capitalize()})"
-                file_name = f"{model}_{metric}_{mode}_heatmap.png"
+            # Variance difference
+            matrices["variance_diff"].loc[train1, train2] = np.var(delta_z1) - np.var(delta_z2)
 
-                # Convert DataFrame to a NumPy array for heatmap plotting
-                plot_heatmap(matrix.values, title, output_dir, file_name)
+            # Student's t-test
+            t_stat, p_value = ttest_ind(delta_z1, delta_z2, equal_var=True, nan_policy="omit")
+            matrices["student_t_stat"].loc[train1, train2] = t_stat
+            matrices["student_p_value"].loc[train1, train2] = p_value
 
-                # Save matrix to CSV
-                csv_file = os.path.join(output_dir, f"{model}_{metric}_{mode}_matrix.csv")
-                matrix.to_csv(csv_file)
-                print(f"Saved {metric} matrix for {model} ({mode}) to {csv_file}.")
+            # Welch's t-test
+            t_stat, p_value = ttest_ind(delta_z1, delta_z2, equal_var=False, nan_policy="omit")
+            matrices["welch_t_stat"].loc[train1, train2] = t_stat
+            matrices["welch_p_value"].loc[train1, train2] = p_value
+
+            # Bartlett's test
+            try:
+                bartlett_stat, bartlett_p = bartlett(delta_z1, delta_z2)
+                matrices["bartlett_stat"].loc[train1, train2] = bartlett_stat
+                matrices["bartlett_p"].loc[train1, train2] = bartlett_p
+            except ValueError:
+                print(f"Bartlett test failed for {train1} vs {train2}. Setting NaN values.")
+                matrices["bartlett_stat"].loc[train1, train2] = np.nan
+                matrices["bartlett_p"].loc[train1, train2] = np.nan
+
+    # Save and plot matrices
+    for metric, matrix in matrices.items():
+        matrix = matrix.apply(pd.to_numeric, errors="coerce")  # Ensure numeric values
+        matrix.fillna(0, inplace=True)  # Replace NaNs with 0
+        title = f"{model.capitalize()} - {metric.replace('_', ' ').title()} ({mode.capitalize()})"
+        file_name = f"{model}_{metric}_{mode}_heatmap.png"
+
+        # Plot heatmap
+        plot_heatmap(matrix.values, title, output_dir, file_name, x_labels=matrix.columns, y_labels=matrix.index)
+
+        # Save matrix to CSV
+        csv_file = os.path.join(output_dir, f"{model}_{metric}_{mode}_matrix.csv")
+        matrix.to_csv(csv_file)
+        print(f"Saved {metric} matrix for {model} ({mode}) to {csv_file}.")
 
 def main():
     # Load configuration
-    config_path = "/Users/r.kanaki/code/inlabru_nbody/config/RS_heatmap_micat1_schnell.yml"
+    #config_path = "/Users/r.kanaki/code/inlabru_nbody/config/RS_heatmap_micecat1_schnell.yml"
+    config_path = "/Users/r.kanaki/code/inlabru_nbody/config/RS_heatmap_micecat1_error.yml"
+    #config_path = "/Users/r.kanaki/code/inlabru_nbody/config/RS_heatmap_micecat1_full.yml"
     config = load_config(config_path)
 
     # Extract paths from configuration
@@ -192,42 +264,24 @@ def main():
     # Load results from JSON
     results = load_results(json_file)["results"]
 
-    # Define modes, models, and metrics
+    # Define modes and models
     modes = ["true", "realization"]
     models = ["random_forest", "1nn"]
-    metrics = ["MSE", "R2", "Variance", "Skewness", "Kurtosis"]
 
     # Generate heatmaps for performance metrics
     for mode in modes:
         mode_results = {k: v for k, v in results.items() if k.endswith(mode)}  # Filter results by mode
         output_dir = mode_dirs[mode]
         for model in models:
-            for metric in metrics:
+            for metric in ["MSE", "R2", "Variance", "Skewness", "Kurtosis"]:
                 generate_heatmaps(mode_results, mode, model, metric, output_dir)
 
-    # Perform statistical tests and save heatmaps
+    # Perform statistical tests and also produce mean Delta_z heatmap
     for mode in modes:
         mode_results = {k: v for k, v in results.items() if k.endswith(mode)}  # Filter results by mode
         output_dir = mode_dirs[mode]
-        statistical_matrices = perform_statistical_tests(mode_results, output_dir)
+        for model in models:
+            perform_statistical_tests(mode_results, mode, model, output_dir)
 
-        if not statistical_matrices:
-            print(f"No statistical matrices generated for {mode} mode. Skipping.")
-            continue
-
-        for model, matrices in statistical_matrices.items():
-            for metric, matrix in matrices.items():
-                if matrix.empty:
-                    print(f"No valid data for {model} - {mode} - {metric}. Skipping.")
-                    continue
-
-                file_name = f"{model}_{metric}_heatmap_{mode}.png"
-                title = f"Statistical Test: {metric.replace('_', ' ').title()} for {model.capitalize()} ({mode.capitalize()})"
-                plot_heatmap(matrix.values, title, output_dir, file_name)
-
-                # Save matrix to CSV
-                csv_file_path = os.path.join(output_dir, f"{model}_{metric}_matrix_{mode}.csv")
-                matrix.to_csv(csv_file_path)
-                print(f"Saved {metric} matrix for {model} ({mode}) to {csv_file_path}")
 if __name__ == "__main__":
     main()

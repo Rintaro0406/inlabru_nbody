@@ -1,0 +1,7 @@
+input_path: "/Users/r.kanaki/code/inlabru_nbody/data/RV_Test/micecat1_16.csv.bz2"
+output_path: 
+  plots: "/Users/r.kanaki/code/inlabru_nbody/output/micecat1_full/plots"
+  high: "/Users/r.kanaki/code/inlabru_nbody/output/micecat1_full/high_density.csv.bz2"
+  low: "/Users/r.kanaki/code/inlabru_nbody/output/micecat1_full/low_density.csv.bz2"
+  random: "/Users/r.kanaki/code/inlabru_nbody/output/micecat1_full/random_sampling.csv.bz2"
+nside: 32

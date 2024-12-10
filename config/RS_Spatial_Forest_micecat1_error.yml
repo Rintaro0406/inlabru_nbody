@@ -1,0 +1,20 @@
+input_paths:
+  high_density: "/Users/r.kanaki/code/inlabru_nbody/output/micecat1_schnell_with_error/high_density.csv.bz2"
+  low_density: "/Users/r.kanaki/code/inlabru_nbody/output/micecat1_schnell_with_error/low_density.csv.bz2"
+  random_sample: "/Users/r.kanaki/code/inlabru_nbody/output/micecat1_schnell_with_error/random_sampling.csv.bz2"
+
+output_paths:
+  base_dir: "/Users/r.kanaki/code/inlabru_nbody/output/micecat1_schnell_with_error/RS_result"
+  true_dir: 
+    random_forest: "/Users/r.kanaki/code/inlabru_nbody/output/micecat1_schnell_with_error/RS_result/true/random_forest"
+    nn: "/Users/r.kanaki/code/inlabru_nbody/output/micecat1_schnell_with_error/RS_result/true/1nn"
+  realization_dir: 
+    random_forest: "/Users/r.kanaki/code/inlabru_nbody/output/micecat1_schnell_with_error/RS_result/realization/random_forest"
+    nn: "/Users/r.kanaki/code/inlabru_nbody/output/micecat1_schnell_with_error/RS_result/realization/1nn"
+
+parameters:
+  n_estimators: 100
+  max_depth: 20
+  test_size: 0.2
+  random_state: 42
+  nside: 32
