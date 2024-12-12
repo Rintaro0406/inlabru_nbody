@@ -385,7 +385,7 @@ def plot_density_histogram(healpix_map, threshold, output_path):
     """
     # Remove zero values for normalization
     #non_zero_values = healpix_map[healpix_map > 0]
-    non_zero_values = healpix_map[healpix_map > 40]
+    non_zero_values = healpix_map[healpix_map > 400]
 
     plt.figure(figsize=(10, 6))
     # Normalize the histogram by setting `stat="density"` in sns.histplot
@@ -471,7 +471,7 @@ def main():
 
     data = read_catalog(catalog_path)
     healpix_map = create_healpix_map(data, nside)
-    healpix_map_valid = healpix_map[healpix_map > 40]
+    healpix_map_valid = healpix_map[healpix_map > 400]
     density_threshold = np.percentile(healpix_map_valid,90)
     plot_density_histogram(healpix_map, density_threshold, output_paths["plots"])
 
