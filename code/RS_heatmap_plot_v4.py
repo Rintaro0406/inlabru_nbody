@@ -251,7 +251,8 @@ def main():
     # Load configuration
     #config_path = "/Users/r.kanaki/code/inlabru_nbody/config/RS_heatmap_micecat1_schnell.yml"
     #config_path = "/Users/r.kanaki/code/inlabru_nbody/config/RS_heatmap_micecat1_error.yml"
-    config_path = "/Users/r.kanaki/code/inlabru_nbody/config/RS_heatmap_micecat1_full.yml"
+    #config_path = "/Users/r.kanaki/code/inlabru_nbody/config/RS_heatmap_micecat1_full.yml"
+    config_path = "/Users/r.kanaki/code/inlabru_nbody/config/RS_heatmap_micecat1_debug.yml"
     config = load_config(config_path)
 
     # Extract paths from configuration
