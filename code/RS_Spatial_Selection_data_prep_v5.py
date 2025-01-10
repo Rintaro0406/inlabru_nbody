@@ -183,7 +183,7 @@ def stratify_data(data, healpix_map, nside):
     data_filtered["pixel_index"] = pixel_indices
 
     filtered_healpix_map = create_healpix_map(data_filtered, nside)
-    threshold = np.percentile(filtered_healpix_map[filtered_healpix_map > 0], 90)
+    threshold = np.percentile(filtered_healpix_map[filtered_healpix_map > 400], 95)
     print(f"Density threshold for high-density pixels: {threshold:.2f}")
     high_density_pixels = np.where(filtered_healpix_map > threshold)[0]
     low_density_pixels = np.where(filtered_healpix_map <= threshold)[0]
@@ -365,7 +365,7 @@ def plot_true_redshift_distribution(data, target, output_path, subset_name="all"
         subset_name (str): Name of the subset (e.g., "all", "high_density").
     """
     plt.figure(figsize=(8, 6))
-    sns.histplot(data[target], bins=50, kde=True, color="blue", alpha=0.7)
+    sns.histplot(data[target], bins=50, kde=None, color="blue", alpha=0.7)
     plt.xlabel("True Redshift (z_cgal)")
     plt.ylabel("Frequency")
     plt.title(f"Distribution of True Redshifts ({subset_name.capitalize()})")
@@ -374,7 +374,7 @@ def plot_true_redshift_distribution(data, target, output_path, subset_name="all"
     plt.close()
 
 
-def plot_density_histogram(healpix_map, threshold, output_path):
+def plot_density_histogram(healpix_map, threshold, output_path, nside=32):
     """
     Plot a normalized histogram of galaxy densities with high/low density boundaries.
 
@@ -384,27 +384,31 @@ def plot_density_histogram(healpix_map, threshold, output_path):
         output_path (str): Path to save the plot.
     """
     # Remove zero values for normalization
-    #non_zero_values = healpix_map[healpix_map > 0]
-    non_zero_values = healpix_map[healpix_map > 400]
-
+     # Calculate the area of a HEALPix pixel in square degrees
+    npix = hp.nside2npix(nside)
+    sky_area = 41253  # Total sky area in square degrees
+    pixel_area = sky_area / npix  # Area of each pixel in square degrees
+    # Convert galaxy density to galaxies per square degree
+    healpix_map_deg2 = healpix_map / pixel_area *256. 
+    threshold = threshold / pixel_area *256.    
     plt.figure(figsize=(10, 6))
     # Normalize the histogram by setting `stat="density"` in sns.histplot
     sns.histplot(
-        non_zero_values,
+        healpix_map_deg2,
         bins=100,
         color="gray",
         alpha=0.7,
-        label="Galaxy Density",
+        label="Galaxy Density (per square degree)",
         stat="density",
     )
     plt.axvline(
         threshold,
         color="red",
         linestyle="--",
-        label=f"High/Low Density Threshold ({threshold:.2f})",
+        label=f"High/Low Density Threshold ({int(threshold)})",
     )
-    plt.xlabel("Galaxy Density")
-    plt.ylabel("Probability Density (Log scale)")
+    plt.xlabel("Galaxy Density (per square degree)")
+    plt.ylabel("Probability Density")
     plt.title("Normalized Galaxy Density Distribution with High/Low Boundary")
     plt.legend()
     plt.grid()
@@ -459,7 +463,7 @@ def plot_pairwise_true_realization(
 
 @measure_time
 def main():
-    config = read_yaml_config("/Users/r.kanaki/code/inlabru_nbody/config/RS_micecat1_data_error_prep.yml")
+    config = read_yaml_config("/Users/r.kanaki/code/inlabru_nbody/config/RS_micecat1_data_debug.yml")
     #config = read_yaml_config("/Users/r.kanaki/code/inlabru_nbody/config/RS_micecat1_data_full_prep.yml")
     catalog_path = config["input_path"]
     output_paths = config["output_path"]
@@ -472,10 +476,10 @@ def main():
     data = read_catalog(catalog_path)
     healpix_map = create_healpix_map(data, nside)
     healpix_map_valid = healpix_map[healpix_map > 400]
-    density_threshold = np.percentile(healpix_map_valid,90)
-    plot_density_histogram(healpix_map, density_threshold, output_paths["plots"])
+    density_threshold = np.percentile(healpix_map_valid,95)
+    plot_density_histogram(healpix_map_valid, density_threshold, output_paths["plots"])
 
-    high_data, low_data, random_data = stratify_data(data, healpix_map, nside)
+    high_data, low_data, random_data = stratify_data(data, healpix_map_valid, nside)
     save_datasets(high_data, low_data, random_data, output_paths)
 
     ensure_directory_exists(output_paths["plots"])
@@ -619,36 +623,36 @@ def main():
     plot_color_color_diagram(
         high_data,
         output_path=output_paths["plots"],
-        subset_name="high_density",
+        subset_name="High density",
         redshift_column="z",
         realization=True,
     )
     plot_color_color_diagram(
         low_data,
         output_path=output_paths["plots"],
-        subset_name="low_density",
+        subset_name="Low density",
         redshift_column="z",
         realization=True,
     )
     plot_color_color_diagram(
         random_data,
         output_path=output_paths["plots"],
-        subset_name="random",
+        subset_name="Random Sampling",
         redshift_column="z",
         realization=True,
     )
     # Plot redshift distributions
     plot_true_redshift_distribution(
-        data, redshift_target, output_paths["plots"], subset_name="all"
+        data, redshift_target, output_paths["plots"], subset_name="All"
     )
     plot_true_redshift_distribution(
-        high_data, redshift_target, output_paths["plots"], subset_name="high_density"
+        high_data, redshift_target, output_paths["plots"], subset_name="High density"
     )
     plot_true_redshift_distribution(
-        low_data, redshift_target, output_paths["plots"], subset_name="low_density"
+        low_data, redshift_target, output_paths["plots"], subset_name="Low density"
     )
     plot_true_redshift_distribution(
-        random_data, redshift_target, output_paths["plots"], subset_name="random"
+        random_data, redshift_target, output_paths["plots"], subset_name="Random Sampling"
     )
 
 if __name__ == "__main__":
