@@ -1,0 +1,17 @@
+{
+    "high_density": {
+        "high_density": 0.0,
+        "low_density": -7.613250894801288e-05,
+        "random_sample": -5.317685253839236e-05
+    },
+    "low_density": {
+        "high_density": 7.613250894801288e-05,
+        "low_density": 0.0,
+        "random_sample": 2.295565640962052e-05
+    },
+    "random_sample": {
+        "high_density": 5.317685253839236e-05,
+        "low_density": -2.295565640962052e-05,
+        "random_sample": 0.0
+    }
+}

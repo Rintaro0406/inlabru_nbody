@@ -1,0 +1,4 @@
+,high_density,low_density,random_sample
+high_density,1.0,0.0,0.0
+low_density,0.0,1.0,0.0
+random_sample,0.0,0.0,1.0
