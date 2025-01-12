@@ -23,6 +23,7 @@ use("Agg")
 Utility Functions
 """
 
+
 def measure_time(func):
     """
     A decorator to measure the execution time of a function.
@@ -396,8 +397,14 @@ def plot_histogram_true_vs_estimated(y_true, y_est, output_path, suffix=""):
     Plot a histogram of true vs estimated redshifts within specified bins.
     """
     plt.figure(figsize=(10, 8))
-    sns.histplot(y_true, color="blue", alpha=0.6, label="True Redshift", bins=50)
-    sns.histplot(y_est, color="orange", alpha=0.6, label="Estimated Redshift", bins=50)
+    bin_num = 50
+    bin_max = max(y_true.max(), y_est.max())
+    bin_min = min(y_true.min(), y_est.min())
+    bins = np.linspace(bin_min, bin_max, bin_num)
+    sns.histplot(y_true, color="blue", alpha=0.6, label="True Redshift", bins=bins)
+    sns.histplot(
+        y_est, color="orange", alpha=0.6, label="Estimated Redshift", bins=bins
+    )
     plt.xlabel("Redshift z")
     plt.ylabel("Frequency")
     plt.xlim(0.3, 1.2)
@@ -407,15 +414,28 @@ def plot_histogram_true_vs_estimated(y_true, y_est, output_path, suffix=""):
     plt.savefig(os.path.join(output_path, f"histogram_redshift_nn_binned{suffix}.png"))
     plt.close()
 
+
 ### New experiment
 def plot_combined_histograms(y_test, y_pred_nn, y_pred_rf, output_dir, suffix=""):
     """
     Plot combined histograms of true, NN predicted, and RF predicted redshifts.
     """
     plt.figure(figsize=(10, 8))
-    sns.histplot(y_test, color="blue", alpha=0.6, label="True Redshift", bins=50)
-    sns.histplot(y_pred_nn, color="orange", alpha=0.6, label="Estimated Redshift (1NN)", bins=50)
-    sns.histplot(y_pred_rf, color="green", alpha=0.6, label="Estimated Redshift (RF)", bins=50)
+    bin_num = 50
+    bin_max = max(y_test.max(), y_pred_nn.max(), y_pred_rf.max())
+    bin_min = min(y_test.min(), y_pred_nn.min(), y_pred_rf.min())
+    bins = np.linspace(bin_min, bin_max, bin_num)
+    sns.histplot(y_test, color="blue", alpha=0.6, label="True Redshift", bins=bins)
+    sns.histplot(
+        y_pred_nn,
+        color="orange",
+        alpha=0.6,
+        label="Estimated Redshift (1NN)",
+        bins=bins,
+    )
+    sns.histplot(
+        y_pred_rf, color="green", alpha=0.6, label="Estimated Redshift (RF)", bins=bins
+    )
     plt.xlabel("Redshift z")
     plt.ylabel("Frequency")
     plt.xlim(0.3, 1.2)
@@ -424,6 +444,93 @@ def plot_combined_histograms(y_test, y_pred_nn, y_pred_rf, output_dir, suffix=""
     plt.grid()
     plt.savefig(os.path.join(output_dir, f"histogram_redshift_combined{suffix}.png"))
     plt.close()
+
+
+def plot_combined_bins_histogram(
+    y_test, y_pred_rf, y_pred_nn, bins, bin_labels, output_dir, suffix=""
+):
+    """
+    Plot combined histograms of true, RF predicted, and NN predicted redshifts for different bins.
+    """
+    plt.figure(figsize=(10, 8))
+    bin_num = 50
+    bin_max = max(y_test.max(), y_pred_rf.max(), y_pred_nn.max())
+    bin_min = min(y_test.min(), y_pred_rf.min(), y_pred_nn.min())
+    bins_range = np.linspace(bin_min, bin_max, bin_num)
+
+    sns.histplot(
+        y_test, bins=bins_range, color="blue", label="True Redshift", alpha=0.6
+    )
+    sns.histplot(
+        y_pred_rf,
+        bins=bins_range,
+        color="green",
+        label="RF Predicted Redshift",
+        alpha=0.6,
+    )
+    sns.histplot(
+      y_pred_nn,
+      bins=bins_range,
+      color="orange",
+      label="NN Predicted Redshift (Filtered by RF z_pred)",
+      alpha=0.6,
+    )
+
+    plt.xlabel("Redshift z")
+    plt.ylabel("Frequency")
+    plt.title("Combined Histogram of True vs Estimated Redshift for Different Bins")
+    plt.legend()
+    plt.grid()
+    plt.savefig(
+        os.path.join(output_dir, f"combined_histogram_redshift_bins{suffix}.png")
+    )
+    plt.close()
+
+
+def plot_combined_bins_scatter(
+    y_test, y_pred_rf, y_pred_nn, bins, bin_labels, output_dir, suffix=""
+):
+    """
+    Plot combined scatter plot of true vs RF predicted and NN predicted redshifts for different bins.
+    """
+    plt.figure(figsize=(10, 8))
+    markers = ["o", "P", "X"]  # Different markers for each bin
+
+    for (bin_start, bin_end), bin_label, marker in zip(bins, bin_labels, markers):
+        bin_mask = (y_pred_rf >= bin_start) & (y_pred_rf < bin_end)
+        plt.scatter(
+            y_test[bin_mask],
+            y_pred_rf[bin_mask],
+            alpha=0.5,
+            s=20,
+            label=f"RF {bin_label}",
+            marker=marker,
+            color="orange",
+        )
+        plt.scatter(
+            y_test[bin_mask],
+            y_pred_nn[bin_mask],
+            alpha=0.5,
+            s=20,
+            label=f"NN {bin_label}",
+            marker=marker,
+            color="green",
+        )
+
+    plt.plot(
+        [y_test.min(), y_test.max()],
+        [y_test.min(), y_test.max()],
+        "r--",
+        label="Perfect Prediction",
+    )
+    plt.xlabel("True Redshift $z$")
+    plt.ylabel(r"Estimated Photometric Redshift $\hat{z}_\text{photo}$")
+    plt.title("Combined Scatter Plot of True vs Estimated Redshift for Different Bins")
+    plt.legend()
+    plt.grid()
+    plt.savefig(os.path.join(output_dir, f"combined_scatter_redshift_bins{suffix}.png"))
+    plt.close()
+
 
 def run_new_experiment(datasets, config, base_output_dir, features, target, nside):
     """
@@ -435,13 +542,14 @@ def run_new_experiment(datasets, config, base_output_dir, features, target, nsid
     - Plot histograms and evaluate results
     """
     results = {"random_forest": {}, "1nn": {}}
-    p_values = []
-    stats_results = {"students_t_test": {}, "welchs_t_test": {}, "variance_test": {}}
+    pass  # Remove unused variables
 
     for train_key, train_data in datasets.items():
         print(f"Processing training dataset: {train_key}")
 
-        X_train = (train_data[features] - train_data[features].mean()) / train_data[features].std()
+        X_train = (train_data[features] - train_data[features].mean()) / train_data[
+            features
+        ].std()
         y_train = train_data[target]
 
         rf = train_random_forest(X_train, y_train, config)
@@ -454,16 +562,29 @@ def run_new_experiment(datasets, config, base_output_dir, features, target, nsid
         for test_key, test_data in datasets.items():
             print(f"Processing testing dataset: {test_key}")
 
-            X_test = (test_data[features] - train_data[features].mean()) / train_data[features].std()
+            X_test = (test_data[features] - train_data[features].mean()) / train_data[
+                features
+            ].std()
             y_test = test_data[target]
 
             y_pred_rf = rf.predict(X_test)
-            rf_output_dir = os.path.join(base_output_dir, "new_experiment", "random_forest", f"{train_key}_train_{test_key}_test")
+            rf_output_dir = os.path.join(
+                base_output_dir,
+                "new_experiment",
+                "random_forest",
+                f"{train_key}_train_{test_key}_test",
+            )
             os.makedirs(rf_output_dir, exist_ok=True)
 
             # Evaluate RF
             rf_mse, rf_r2, rf_delta_z, rf_var, rf_skew, rf_kurto = evaluate_model(
-                y_test, y_pred_rf, test_data.copy(), nside, rf_output_dir, train_key, test_key
+                y_test,
+                y_pred_rf,
+                test_data.copy(),
+                nside,
+                rf_output_dir,
+                train_key,
+                test_key,
             )
             results["random_forest"][(train_key, test_key)] = {
                 "Delta_z": rf_delta_z.tolist(),
@@ -474,19 +595,35 @@ def run_new_experiment(datasets, config, base_output_dir, features, target, nsid
                 "Kurtosis": rf_kurto,
             }
 
+            combined_y_test = []
+            combined_y_pred_rf = []
+            combined_y_pred_nn = []
+
             for (bin_start, bin_end), bin_label in zip(bins, bin_labels):
                 bin_mask = (y_pred_rf >= bin_start) & (y_pred_rf < bin_end)
                 X_train_bin = X_train[bin_mask]
                 y_train_bin = y_pred_rf_train[bin_mask]
-
+                y_pred_rf_bin = y_pred_rf[bin_mask]
                 nn = train_1nn(X_train_bin, y_train_bin, config)
 
-                nn_output_dir = os.path.join(base_output_dir, "new_experiment", "1nn", f"{train_key}_train_{test_key}_test", bin_label)
+                nn_output_dir = os.path.join(
+                    base_output_dir,
+                    "new_experiment",
+                    "1nn",
+                    f"{train_key}_train_{test_key}_test",
+                    bin_label,
+                )
                 os.makedirs(nn_output_dir, exist_ok=True)
                 y_test_bin = y_test[bin_mask]
                 y_pred_nn = nn.predict(X_test[bin_mask])
                 nn_mse, nn_r2, nn_delta_z, nn_var, nn_skew, nn_kurto = evaluate_model(
-                    y_test_bin, y_pred_nn, test_data.copy(), nside, nn_output_dir, train_key, test_key
+                    y_test_bin,
+                    y_pred_nn,
+                    test_data.copy(),
+                    nside,
+                    nn_output_dir,
+                    train_key,
+                    test_key,
                 )
                 results["1nn"][(train_key, test_key, bin_label)] = {
                     "Delta_z": nn_delta_z.tolist(),
@@ -497,12 +634,58 @@ def run_new_experiment(datasets, config, base_output_dir, features, target, nsid
                     "Kurtosis": nn_kurto,
                 }
                 # Call the new function
-                plot_combined_histograms(y_test, y_pred_nn, y_pred_rf, nn_output_dir, suffix=f"_{bin_label}")
-                plot_histogram_true_vs_estimated(y_test, y_pred_nn, nn_output_dir, suffix=f"_{bin_label}")
-                plot_histogram_true_vs_estimated(y_test, y_pred_rf, rf_output_dir, suffix=f"_{bin_label}")
+                plot_combined_histograms(
+                    y_test_bin,
+                    y_pred_nn,
+                    y_pred_rf_bin,
+                    nn_output_dir,
+                    suffix=f"_{bin_label}",
+                )
+                plot_histogram_true_vs_estimated(
+                    y_test_bin, y_pred_nn, nn_output_dir, suffix=f"_{bin_label}"
+                )
 
-    save_results_with_pvalues(results, config, p_values, stats_results, base_output_dir, filename="results_new_experiment.json")
-    
+                # Combine bins and plot
+                combined_y_test.append(y_test_bin)
+                combined_y_pred_rf.append(y_pred_rf_bin)
+                combined_y_pred_nn.append(y_pred_nn)
+
+            combined_y_test = np.concatenate(combined_y_test)
+            combined_y_pred_rf = np.concatenate(combined_y_pred_rf)
+            combined_y_pred_nn = np.concatenate(combined_y_pred_nn)
+
+            # Debugging print statements
+            print(f"Combined y_test: {combined_y_test}")
+            print(f"Combined y_pred_rf: {combined_y_pred_rf}")
+            print(f"Combined y_pred_nn: {combined_y_pred_nn}")
+            combined_output_dir = os.path.join(
+                base_output_dir,
+                "new_experiment",
+                "combined_bins",
+                f"{train_key}_train_{test_key}_test",
+            )
+            os.makedirs(combined_output_dir, exist_ok=True)
+
+            plot_combined_bins_histogram(
+                combined_y_test,
+                combined_y_pred_rf,
+                combined_y_pred_nn,
+                bins,
+                bin_labels,
+                combined_output_dir,
+            )
+            plot_combined_bins_scatter(
+                combined_y_test,
+                combined_y_pred_rf,
+                combined_y_pred_nn,
+                bins,
+                bin_labels,
+                combined_output_dir,
+            )
+
+    # save_results_with_pvalues(results, config, p_values, stats_results, base_output_dir, filename="results_new_experiment.json")
+
+
 @measure_time
 def main():
     config = read_yaml_config(
@@ -546,10 +729,10 @@ def main():
     p_values = []
     stats_results = {"students_t_test": {}, "welchs_t_test": {}, "variance_test": {}}
 
-   
-
     # Run new experiment
-    run_new_experiment(datasets, config, base_output_dir, features_true, target_true, nside)
+    run_new_experiment(
+        datasets, config, base_output_dir, features_true, target_true, nside
+    )
 
 
 if __name__ == "__main__":
