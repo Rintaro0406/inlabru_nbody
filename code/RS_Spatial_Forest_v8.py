@@ -173,11 +173,11 @@ def plot_histogram_delta_z(delta_z, output_path, train_key, test_key):
         delta_z.mean(),
         color="r",
         linestyle="--",
-        label=f"Mean Δz: {delta_z.mean():.4f}",
+        label=fr"Mean $\Delta z$: {delta_z.mean():.4f}",
     )
-    plt.xlabel("Δz = z - $\hat{z}_\text{photo}$")
+    plt.xlabel(r"$\Delta z = z - \hat{z}_\text{photo}$")
     plt.ylabel("Frequency")
-    plt.title("Distribution of Δz")
+    plt.title(r"Distribution of $\Delta z$")
     plt.legend()
     plt.grid()
     plt.savefig(
@@ -198,15 +198,20 @@ def plot_density_histogram(y_test, y_pred, output_path, train_key, test_key):
         test_key (str): Identifier for the testing dataset.
     """
     # Compute residuals and statistics
+    bin_num = 50
+    bin_max = max(y_test.max(), y_pred.max())
+    bin_min = min(y_test.min(), y_pred.min())
+    bins = np.linspace(bin_min, bin_max, bin_num)
     residuals = y_test - y_pred
+    std = np.std(residuals)
     variance = np.var(residuals)
     skewness = np.mean(residuals) / np.std(residuals)
     kurtosis = np.mean(residuals**4) / variance**2
 
     # Create the histogram plot
     plt.figure(figsize=(10, 8))
-    sns.histplot(y_test, bins=50, color="blue", alpha=0.6, label="True Redshift")
-    sns.histplot(y_pred, bins=50, color="orange", alpha=0.6, label="Predicted Redshift")
+    sns.histplot(y_test, bins=bins, color="blue", alpha=0.6, label="True Redshift")
+    sns.histplot(y_pred, bins=bins, color="orange", alpha=0.6, label="Predicted Redshift")
 
     # Add labels and title
     plt.xlabel("Redshift $z$", fontsize=14)
@@ -215,6 +220,8 @@ def plot_density_histogram(y_test, y_pred, output_path, train_key, test_key):
 
     # Add statistical annotations
     stats_text = (
+        f"$\mathrm{{Mean}}$: {residuals.mean():.4f}\n"
+        f"$\mathrm{{Standard Deviation}}$: {std:.4f}\n"
         f"$\mathrm{{Variance}}$: {variance:.4f}\n"
         f"$\mathrm{{Skewness}}$: {skewness:.4f}\n"
         f"$\mathrm{{Kurtosis}}$: {kurtosis:.4f}"
@@ -505,7 +512,7 @@ def plot_combined_bins_scatter(
             s=20,
             label=f"RF {bin_label}",
             marker=marker,
-            color="orange",
+            color="green",
         )
         plt.scatter(
             y_test[bin_mask],
@@ -514,7 +521,7 @@ def plot_combined_bins_scatter(
             s=20,
             label=f"NN {bin_label}",
             marker=marker,
-            color="green",
+            color="orange",
         )
 
     plt.plot(
@@ -530,102 +537,315 @@ def plot_combined_bins_scatter(
     plt.grid()
     plt.savefig(os.path.join(output_dir, f"combined_scatter_redshift_bins{suffix}.png"))
     plt.close()
+def plot_delta_mu_scatter(delta_mu_hd_vs_rd, delta_mu_rd_vs_rd, delta_z_hd_vs_rd, delta_z_rd_vs_rd, mean_bins, output_dir):
+    """
+    Plot scatter of Delta_mu against mean of each redshift bin.
+    """
+    plt.figure(figsize=(10, 8))
+    for i, (mean_bin, delta_mu_hd, delta_mu_rd) in enumerate(zip(mean_bins, delta_mu_hd_vs_rd, delta_mu_rd_vs_rd)):
+        plt.scatter(mean_bin, delta_mu_hd, color="blue", marker="P", label="HD vs RD for each bin" if i == 0 else "")
+        plt.scatter(mean_bin, delta_mu_rd, color="red", marker="X", label="RD vs RD for each bin" if i == 0 else "")
+        plt.text(mean_bin, delta_mu_hd, f"{delta_mu_hd:.4f}", fontsize=12, color="darkblue", ha='right', va='bottom')
+        plt.text(mean_bin, delta_mu_rd, f"{delta_mu_rd:.4f}", fontsize=12, color="darkred", ha='right', va='top')
+
+    delta_z_hd_vs_rd = np.concatenate(delta_z_hd_vs_rd)
+    delta_z_rd_vs_rd = np.concatenate(delta_z_rd_vs_rd)
+    plt.axhline(float(np.mean(delta_z_hd_vs_rd)), color="blue", linestyle="--", label=f"Mean of all HD vs RD: {np.mean(delta_z_hd_vs_rd):.4f}")
+    plt.axhline(float(np.mean(delta_z_rd_vs_rd)), color="red", linestyle="--", label=f"Mean of all RD vs RD: {np.mean(delta_z_rd_vs_rd):.4f}")
+    plt.xlabel("Mean Redshift", fontsize=14)
+    plt.ylabel(r"$\Delta \mu$", fontsize=14)
+    plt.title(r"Scatter of $\Delta \mu$ against Mean Redshift", fontsize=16)
+    plt.legend(fontsize=12)
+    plt.grid(visible=True, which="major", linestyle="--", alpha=0.7)
+    plt.tight_layout()
+    plt.savefig(os.path.join(output_dir, "delta_mu_scatter.png"), dpi=300)
+    plt.close()
 
 
-def run_new_experiment(datasets, config, base_output_dir, features, target, nside):
+def plot_delta_sigma_scatter(delta_sigma_hd_vs_rd, delta_sigma_rd_vs_rd, delta_z_hd_vs_rd, delta_z_rd_vs_rd, mean_bins, output_dir):
+    """
+    Plot scatter of Delta_sigma against mean of each redshift bin.
+    """
+    plt.figure(figsize=(10, 8))
+    for i, (mean_bin, delta_sigma_hd, delta_sigma_rd) in enumerate(zip(mean_bins, delta_sigma_hd_vs_rd, delta_sigma_rd_vs_rd)):
+        plt.scatter(mean_bin, delta_sigma_hd, color="blue", marker="P", label="HD vs RD for each bin" if i == 0 else "")
+        plt.scatter(mean_bin, delta_sigma_rd, color="red", marker="X", label="RD vs RD for each bin" if i == 0 else "")
+        plt.text(mean_bin, delta_sigma_hd, f"{delta_sigma_hd:.4f}", fontsize=12, color="darkblue", ha='right', va='bottom')
+        plt.text(mean_bin, delta_sigma_rd, f"{delta_sigma_rd:.4f}", fontsize=12, color="darkred", ha='right', va='top')
+    delta_z_hd_vs_rd = np.concatenate(delta_z_hd_vs_rd)
+    delta_z_rd_vs_rd = np.concatenate(delta_z_rd_vs_rd)
+    plt.axhline(float(np.std(delta_z_hd_vs_rd)), color="blue", linestyle="--", label=f"Std of all HD vs RD: {np.std(delta_z_hd_vs_rd):.4f}")
+    plt.axhline(float(np.std(delta_z_rd_vs_rd)), color="red", linestyle="--", label=f"Std of all RD vs RD: {np.std(delta_z_rd_vs_rd):.4f}")
+    plt.xlabel("Mean Redshift", fontsize=14)
+    plt.ylabel(r"$\Delta \sigma$", fontsize=14)
+    plt.title(r"Scatter of $\Delta \sigma$ against Mean Redshift", fontsize=16)
+    plt.legend(fontsize=12)
+    plt.grid(visible=True, which="major", linestyle="--", alpha=0.7)
+    plt.tight_layout()
+    plt.savefig(os.path.join(output_dir, "delta_sigma_scatter.png"), dpi=300)
+    plt.close()
+
+
+def plot_delta_mu_error(delta_mu_hd_vs_rd, delta_mu_rd_vs_rd, delta_sigma_hd_vs_rd, delta_sigma_rd_vs_rd, delta_z_hd_vs_rd, delta_z_rd_vs_rd, mean_bins, output_dir):
+    """
+    Plot error of Delta_mu against mean of each redshift bin.
+    """
+    plt.figure(figsize=(10, 8))
+    for i, (mean_bin, delta_mu_hd, delta_mu_rd, delta_sigma_hd, delta_sigma_rd) in enumerate(zip(mean_bins, delta_mu_hd_vs_rd, delta_mu_rd_vs_rd, delta_sigma_hd_vs_rd, delta_sigma_rd_vs_rd)):
+        plt.errorbar(mean_bin, delta_mu_hd, yerr=delta_sigma_hd, fmt="P", color="blue", label="HD vs RD for each bin" if i == 0 else "")
+        plt.errorbar(mean_bin, delta_mu_rd, yerr=delta_sigma_rd, fmt="X", color="red", label="RD vs RD for each bin" if i == 0 else "")
+        plt.text(mean_bin, delta_mu_hd, f"{delta_mu_hd:.4f}", fontsize=12, color="darkblue", ha='right', va='bottom')
+        plt.text(mean_bin, delta_mu_rd, f"{delta_mu_rd:.4f}", fontsize=12, color="darkred", ha='right', va='top')
+    delta_z_hd_vs_rd = np.concatenate(delta_z_hd_vs_rd)
+    delta_z_rd_vs_rd = np.concatenate(delta_z_rd_vs_rd)
+    plt.axhline(float(np.mean(delta_z_hd_vs_rd)), color="blue", linestyle="--", label=f"Mean of all HD vs RD: {np.mean(delta_z_hd_vs_rd):.4f}")
+    plt.axhline(float(np.mean(delta_z_rd_vs_rd)), color="red", linestyle="--", label=f"Mean of all RD vs RD: {np.mean(delta_z_rd_vs_rd):.4f}")
+    plt.xlabel("Mean Redshift", fontsize=14)
+    plt.ylabel(r"$\Delta \mu$", fontsize=14)
+    plt.title(r"Error of $\Delta \mu$ against Mean Redshift", fontsize=16)
+    plt.legend(fontsize=12)
+    plt.grid(visible=True, which="major", linestyle="--", alpha=0.7)
+    plt.tight_layout()
+    plt.savefig(os.path.join(output_dir, "delta_mu_error.png"), dpi=300)
+    plt.close()
+
+
+def run_new_experiment(datasets, config, base_output_dir, features_true, features_realization, target_true, target_realization, nside):
     """
     Run a new experiment with the following steps:
     - Train random forest
     - Make mean estimation of photometric redshift using random forest
-    - Make redshift bins 0.5-0.7, 0.7-0.9, 0.9-1.1 from the redshift estimation from random forest
+    - Make redshift bins based on the mean estimation
     - Train 1nn using estimation of selected redshift as a target
     - Plot histograms and evaluate results
     """
     results = {"random_forest": {}, "1nn": {}}
-    pass  # Remove unused variables
+    p_values = []
+    stats_results = {"students_t_test": {}, "welchs_t_test": {}, "variance_test": {}}
 
-    for train_key, train_data in datasets.items():
-        print(f"Processing training dataset: {train_key}")
+    for mode in ["true", "realization"]:
+        print(f"Processing {mode} case")
+        features = features_true if mode == "true" else features_realization
+        target = target_true if mode == "true" else target_realization
 
-        X_train = (train_data[features] - train_data[features].mean()) / train_data[
-            features
-        ].std()
-        y_train = train_data[target]
+        mode_output_dir = os.path.join(base_output_dir, "new_experiment", mode)
+        rf_output_dir = os.path.join(mode_output_dir, "random_forest")
+        nn_output_dir = os.path.join(mode_output_dir, "1nn")
+        os.makedirs(rf_output_dir, exist_ok=True)
+        os.makedirs(nn_output_dir, exist_ok=True)
+        delta_z_hd_vs_rd = []
+        delta_z_rd_vs_rd = []
+        delta_mu_hd_vs_rd = []
+        delta_mu_rd_vs_rd = []
+        delta_sigma_hd_vs_rd = []
+        delta_sigma_rd_vs_rd = []
+        for train_key, train_data in datasets.items():
+            print(f"Processing training dataset: {train_key} ({mode})")
 
-        rf = train_random_forest(X_train, y_train, config)
-        y_pred_rf_train = rf.predict(X_train)
+            X_train = (train_data[features] - train_data[features].mean()) / train_data[features].std()
+            y_train = train_data[target]
 
-        # Create redshift bins
-        bins = [(0.5, 0.7), (0.7, 0.9), (0.9, 1.1)]
-        bin_labels = ["0.5-0.7", "0.7-0.9", "0.9-1.1"]
+            rf = train_random_forest(X_train, y_train, config)
+            y_pred_rf_train = rf.predict(X_train)
 
-        for test_key, test_data in datasets.items():
-            print(f"Processing testing dataset: {test_key}")
+            # Create redshift bins
+            bins = [(0.0, 0.4), (0.4, 0.6), (0.6, 0.8), (0.8, 1.0), (1.0, 1.4)]
+            bin_labels = ["0.0-0.4", "0.4-0.6", "0.6-0.8", "0.8-1.0", "1.0-1.4"]
 
-            X_test = (test_data[features] - train_data[features].mean()) / train_data[
-                features
-            ].std()
-            y_test = test_data[target]
+            for test_key, test_data in datasets.items():
+                print(f"Processing testing dataset: {test_key} ({mode})")
 
-            y_pred_rf = rf.predict(X_test)
-            rf_output_dir = os.path.join(
-                base_output_dir,
-                "new_experiment",
-                "random_forest",
-                f"{train_key}_train_{test_key}_test",
-            )
-            os.makedirs(rf_output_dir, exist_ok=True)
+                X_test = (test_data[features] - train_data[features].mean()) / train_data[features].std()
+                y_test = test_data[target]
 
-            # Evaluate RF
-            rf_mse, rf_r2, rf_delta_z, rf_var, rf_skew, rf_kurto = evaluate_model(
-                y_test,
-                y_pred_rf,
-                test_data.copy(),
-                nside,
-                rf_output_dir,
-                train_key,
-                test_key,
-            )
-            results["random_forest"][(train_key, test_key)] = {
-                "Delta_z": rf_delta_z.tolist(),
-                "MSE": rf_mse,
-                "R2": rf_r2,
-                "Variance": rf_var,
-                "Skewness": rf_skew,
-                "Kurtosis": rf_kurto,
-            }
+                y_pred_rf = rf.predict(X_test)
+                rf_test_output_dir = os.path.join(rf_output_dir, f"{train_key}_train_{test_key}_test")
+                os.makedirs(rf_test_output_dir, exist_ok=True)
 
-            combined_y_test = []
-            combined_y_pred_rf = []
-            combined_y_pred_nn = []
-
-            for (bin_start, bin_end), bin_label in zip(bins, bin_labels):
-                bin_mask = (y_pred_rf >= bin_start) & (y_pred_rf < bin_end)
-                X_train_bin = X_train[bin_mask]
-                y_train_bin = y_pred_rf_train[bin_mask]
-                y_pred_rf_bin = y_pred_rf[bin_mask]
-                nn = train_1nn(X_train_bin, y_train_bin, config)
-
-                nn_output_dir = os.path.join(
-                    base_output_dir,
-                    "new_experiment",
-                    "1nn",
-                    f"{train_key}_train_{test_key}_test",
-                    bin_label,
+                # Evaluate RF
+                rf_mse, rf_r2, rf_delta_z, rf_var, rf_skew, rf_kurto = evaluate_model(
+                    y_test, y_pred_rf, test_data.copy(), nside, rf_test_output_dir, train_key, test_key
                 )
-                os.makedirs(nn_output_dir, exist_ok=True)
-                y_test_bin = y_test[bin_mask]
-                y_pred_nn = nn.predict(X_test[bin_mask])
+                results["random_forest"][(train_key, test_key, mode)] = {
+                    "Delta_z": rf_delta_z.tolist(),
+                    "MSE": rf_mse,
+                    "R2": rf_r2,
+                    "Variance": rf_var,
+                    "Skewness": rf_skew,
+                    "Kurtosis": rf_kurto,
+                }
+
+                combined_y_test = []
+                combined_y_pred_rf = []
+                combined_y_pred_nn = []
+                combined_delta_z = []
+                combined_mse = []
+                combined_r2 = []
+                combined_var = []
+                combined_skew = []
+                combined_kurto = []
+
+                for (bin_start, bin_end), bin_label in zip(bins, bin_labels):
+                    bin_mask = (y_pred_rf >= bin_start) & (y_pred_rf < bin_end)
+                    X_train_bin = X_train[bin_mask]
+                    y_train_bin = y_pred_rf_train[bin_mask]
+                    y_pred_rf_bin = y_pred_rf[bin_mask]
+                    nn = train_1nn(X_train_bin, y_train_bin, config)
+
+                    nn_test_output_dir = os.path.join(nn_output_dir, f"{train_key}_train_{test_key}_test", bin_label)
+                    os.makedirs(nn_test_output_dir, exist_ok=True)
+                    y_test_bin = y_test[bin_mask]
+                    y_pred_nn = nn.predict(X_test[bin_mask])
+                    nn_test_data = test_data.iloc[y_test_bin.index].copy()
+                    nn_mse, nn_r2, nn_delta_z, nn_var, nn_skew, nn_kurto = evaluate_model(
+                        y_test_bin, y_pred_nn, nn_test_data, nside, nn_test_output_dir, train_key, test_key
+                    )
+                    # Call the new function
+                    plot_combined_histograms(
+                        y_test_bin, y_pred_nn, y_pred_rf_bin, nn_test_output_dir, suffix=f"_{bin_label}"
+                    )
+                    plot_histogram_true_vs_estimated(
+                        y_test_bin, y_pred_nn, nn_test_output_dir, suffix=f"_{bin_label}"
+                    )
+
+                    # Combine bins and plot
+                    combined_y_test.append(y_test_bin)
+                    combined_y_pred_rf.append(y_pred_rf_bin)
+                    combined_y_pred_nn.append(y_pred_nn)
+                    combined_delta_z.append(nn_delta_z)
+                    combined_mse.append(nn_mse)
+                    combined_r2.append(nn_r2)
+                    combined_var.append(nn_var)
+                    combined_skew.append(nn_skew)
+                    combined_kurto.append(nn_kurto)
+
+                    # Calculate delta_mu and delta_sigma
+                    
+                    if train_key == "high_density" and test_key == "random_sample":
+                        print(f"HD vs RD: {bin_label}")
+                        delta_mu_hd_vs_rd.append(np.mean(nn_delta_z))
+                        delta_sigma_hd_vs_rd.append(np.std(nn_delta_z))
+                        delta_z_hd_vs_rd.append(nn_delta_z)
+                    elif train_key == "random_sample" and test_key == "random_sample":
+                        print(f"RD vs RD: {bin_label}")
+                        delta_mu_rd_vs_rd.append(np.mean(nn_delta_z))
+                        delta_sigma_rd_vs_rd.append(np.std(nn_delta_z))
+                        delta_z_rd_vs_rd.append(nn_delta_z)
+                        
+
+                combined_y_test = np.concatenate(combined_y_test)
+                combined_y_pred_rf = np.concatenate(combined_y_pred_rf)
+                combined_y_pred_nn = np.concatenate(combined_y_pred_nn)
+            
+                combined_output_dir = os.path.join(mode_output_dir, "combined_bins", f"{train_key}_train_{test_key}_test")
+                os.makedirs(combined_output_dir, exist_ok=True)
+
+                plot_combined_bins_histogram(
+                    combined_y_test, combined_y_pred_rf, combined_y_pred_nn, bins, bin_labels, combined_output_dir
+                )
+                plot_combined_bins_scatter(
+                    combined_y_test, combined_y_pred_rf, combined_y_pred_nn, bins, bin_labels, combined_output_dir
+                )
+                
+                # Evaluate combined bins
+                combined_mse = np.mean(combined_mse)
+                combined_r2 = np.mean(combined_r2)
+                combined_var = np.mean(combined_var)
+                combined_skew = np.mean(combined_skew)
+                combined_kurto = np.mean(combined_kurto)
+                combined_delta_z = np.concatenate(combined_delta_z)
+    
+                results["1nn"][(train_key, test_key, mode)] = {
+                    "Delta_z": combined_delta_z.tolist(),
+                    "MSE": combined_mse,
+                    "R2": combined_r2,
+                    "Variance": combined_var,
+                    "Skewness": combined_skew,
+                    "Kurtosis": combined_kurto,
+                }
+                plot_histogram_delta_z(
+                    combined_delta_z, combined_output_dir, train_key, test_key
+                )
+                plot_density_histogram(
+                        combined_y_test, combined_y_pred_nn, combined_output_dir, train_key, test_key
+                    )
+
+                # Plot new scatter and error plots
+        mean_bins = [(bin_start + bin_end) / 2 for bin_start, bin_end in bins]
+        print("Mean bins:", mean_bins)
+        print("Delta mu HD vs RD:", delta_mu_hd_vs_rd)
+        print("Delta mu RD vs RD:", delta_mu_rd_vs_rd)
+        plot_delta_mu_scatter(delta_mu_hd_vs_rd, delta_mu_rd_vs_rd, delta_z_hd_vs_rd, delta_z_rd_vs_rd, mean_bins, combined_output_dir)
+        plot_delta_sigma_scatter(delta_sigma_hd_vs_rd, delta_sigma_rd_vs_rd, delta_z_hd_vs_rd, delta_z_rd_vs_rd, mean_bins, combined_output_dir)
+        plot_delta_mu_error(delta_mu_hd_vs_rd, delta_mu_rd_vs_rd, delta_sigma_hd_vs_rd, delta_sigma_rd_vs_rd, delta_z_hd_vs_rd, delta_z_rd_vs_rd, mean_bins, combined_output_dir)
+
+    # Save results
+    save_results_with_pvalues(results, config, p_values, stats_results, base_output_dir, filename="results_new_experiment.json")
+
+def run_old_experiment(datasets, config, base_output_dir, features_true, features_realization, target_true, target_realization, nside):
+    """
+    Run the old experiment with the following steps:
+    - Train random forest and 1NN models
+    - Evaluate models on test datasets
+    - Save results and visualizations
+    """
+    results = {"random_forest": {}, "1nn": {}}
+    p_values = []
+    stats_results = {"students_t_test": {}, "welchs_t_test": {}, "variance_test": {}}
+
+    for mode in ["true", "realization"]:
+        print(f"Processing {mode} case")
+        features = features_true if mode == "true" else features_realization
+        target = target_true if mode == "true" else target_realization
+
+        mode_output_dir = os.path.join(base_output_dir, mode)
+        rf_output_dir = os.path.join(mode_output_dir, "random_forest")
+        nn_output_dir = os.path.join(mode_output_dir, "1nn")
+        os.makedirs(rf_output_dir, exist_ok=True)
+        os.makedirs(nn_output_dir, exist_ok=True)
+
+        for train_key, train_data in datasets.items():
+            print(f"Processing training dataset: {train_key} ({mode})")
+
+            X_train = (train_data[features] - train_data[features].mean()) / train_data[features].std()
+            y_train = train_data[target]
+
+            rf = train_random_forest(X_train, y_train, config)
+            nn = train_1nn(X_train, y_train, config)
+
+            # Feature importance
+            plot_feature_importance(rf.feature_importances_, features, rf_output_dir, train_key)
+
+            for test_key, test_data in datasets.items():
+                print(f"Processing testing dataset: {test_key} ({mode})")
+
+                X_test = (test_data[features] - train_data[features].mean()) / train_data[features].std()
+                y_test = test_data[target]
+
+                # Evaluate RF
+                rf_test_output_dir = os.path.join(rf_output_dir, f"{train_key}_train_{test_key}_test")
+                os.makedirs(rf_test_output_dir, exist_ok=True)
+                y_pred_rf = rf.predict(X_test)
+                rf_mse, rf_r2, rf_delta_z, rf_var, rf_skew, rf_kurto = evaluate_model(
+                    y_test, y_pred_rf, test_data.copy(), nside, rf_test_output_dir, train_key, test_key
+                )
+                results["random_forest"][(train_key, test_key, mode)] = {
+                    "Delta_z": rf_delta_z.tolist(),
+                    "MSE": rf_mse,
+                    "R2": rf_r2,
+                    "Variance": rf_var,
+                    "Skewness": rf_skew,
+                    "Kurtosis": rf_kurto,
+                }
+
+                # Evaluate 1NN
+                nn_test_output_dir = os.path.join(nn_output_dir, f"{train_key}_train_{test_key}_test")
+                os.makedirs(nn_test_output_dir, exist_ok=True)
+                y_pred_nn = nn.predict(X_test)
                 nn_mse, nn_r2, nn_delta_z, nn_var, nn_skew, nn_kurto = evaluate_model(
-                    y_test_bin,
-                    y_pred_nn,
-                    test_data.copy(),
-                    nside,
-                    nn_output_dir,
-                    train_key,
-                    test_key,
+                    y_test, y_pred_nn, test_data.copy(), nside, nn_test_output_dir, train_key, test_key
                 )
-                results["1nn"][(train_key, test_key, bin_label)] = {
+                results["1nn"][(train_key, test_key, mode)] = {
                     "Delta_z": nn_delta_z.tolist(),
                     "MSE": nn_mse,
                     "R2": nn_r2,
@@ -633,59 +853,9 @@ def run_new_experiment(datasets, config, base_output_dir, features, target, nsid
                     "Skewness": nn_skew,
                     "Kurtosis": nn_kurto,
                 }
-                # Call the new function
-                plot_combined_histograms(
-                    y_test_bin,
-                    y_pred_nn,
-                    y_pred_rf_bin,
-                    nn_output_dir,
-                    suffix=f"_{bin_label}",
-                )
-                plot_histogram_true_vs_estimated(
-                    y_test_bin, y_pred_nn, nn_output_dir, suffix=f"_{bin_label}"
-                )
 
-                # Combine bins and plot
-                combined_y_test.append(y_test_bin)
-                combined_y_pred_rf.append(y_pred_rf_bin)
-                combined_y_pred_nn.append(y_pred_nn)
-
-            combined_y_test = np.concatenate(combined_y_test)
-            combined_y_pred_rf = np.concatenate(combined_y_pred_rf)
-            combined_y_pred_nn = np.concatenate(combined_y_pred_nn)
-
-            # Debugging print statements
-            print(f"Combined y_test: {combined_y_test}")
-            print(f"Combined y_pred_rf: {combined_y_pred_rf}")
-            print(f"Combined y_pred_nn: {combined_y_pred_nn}")
-            combined_output_dir = os.path.join(
-                base_output_dir,
-                "new_experiment",
-                "combined_bins",
-                f"{train_key}_train_{test_key}_test",
-            )
-            os.makedirs(combined_output_dir, exist_ok=True)
-
-            plot_combined_bins_histogram(
-                combined_y_test,
-                combined_y_pred_rf,
-                combined_y_pred_nn,
-                bins,
-                bin_labels,
-                combined_output_dir,
-            )
-            plot_combined_bins_scatter(
-                combined_y_test,
-                combined_y_pred_rf,
-                combined_y_pred_nn,
-                bins,
-                bin_labels,
-                combined_output_dir,
-            )
-
-    # save_results_with_pvalues(results, config, p_values, stats_results, base_output_dir, filename="results_new_experiment.json")
-
-
+    # Save results
+    save_results_with_pvalues(results, config, p_values, stats_results, base_output_dir, filename="results_old_experiment.json")
 @measure_time
 def main():
     config = read_yaml_config(
@@ -724,14 +894,12 @@ def main():
     target_realization = "z"
 
     nside = config["parameters"]["nside"]
-
-    results = {"random_forest": {}, "1nn": {}}
-    p_values = []
-    stats_results = {"students_t_test": {}, "welchs_t_test": {}, "variance_test": {}}
-
     # Run new experiment
+    run_old_experiment(
+        datasets, config, base_output_dir, features_true, features_realization, target_true, target_realization, nside
+    )
     run_new_experiment(
-        datasets, config, base_output_dir, features_true, target_true, nside
+        datasets, config, base_output_dir, features_true, features_realization, target_true, target_realization, nside
     )
 
 

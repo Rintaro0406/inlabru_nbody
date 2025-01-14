@@ -14,6 +14,7 @@ import seaborn as sns
 
 use("Agg")
 
+
 def measure_time(func):
     """
     A decorator to measure the execution time of a function.
@@ -24,21 +25,27 @@ def measure_time(func):
     Returns:
         wrapper (function): The wrapped function with time measurement.
     """
+
     def wrapper(*args, **kwargs):
         start_time = time.time()
         result = func(*args, **kwargs)
         end_time = time.time()
-        print(f"Function '{func.__name__}' executed in {end_time - start_time:.4f} seconds.")
+        print(
+            f"Function '{func.__name__}' executed in {end_time - start_time:.4f} seconds."
+        )
         return result
 
     return wrapper
+
 
 def check_memory(threshold=0.8):
     def decorator(func):
         @wraps(func)
         def wrapper(*args, **kwargs):
             process = psutil.Process()
-            total_memory = psutil.virtual_memory().total / (1024**2)  # Total system memory in MB
+            total_memory = psutil.virtual_memory().total / (
+                1024**2
+            )  # Total system memory in MB
 
             print(f"Total system memory: {total_memory:.2f} MB")
 
@@ -55,15 +62,22 @@ def check_memory(threshold=0.8):
             # Force garbage collection
             gc.collect()
             memory_after_gc = process.memory_info().rss / (1024**2)  # Memory in MB
-            print(f"[{func.__name__}] Memory after garbage collection: {memory_after_gc:.2f} MB")
+            print(
+                f"[{func.__name__}] Memory after garbage collection: {memory_after_gc:.2f} MB"
+            )
 
             if psutil.virtual_memory().percent / 100.0 > threshold:
-                print(f"[{func.__name__}] Memory usage exceeded {threshold * 100}%. Exiting.")
+                print(
+                    f"[{func.__name__}] Memory usage exceeded {threshold * 100}%. Exiting."
+                )
                 sys.exit(1)
 
             return result
+
         return wrapper
+
     return decorator
+
 
 def ensure_directory_exists(file_path):
     directory = os.path.dirname(file_path)
@@ -71,11 +85,13 @@ def ensure_directory_exists(file_path):
         os.makedirs(directory)
         print(f"Created directory: {directory}")
 
+
 @check_memory(threshold=0.8)
 def read_yaml_config(file_path):
     with open(file_path, "r") as file:
         config = yaml.safe_load(file)
     return config
+
 
 @check_memory(threshold=0.8)
 def read_catalog(file_path, index_col=None, chunksize=10000):
@@ -123,6 +139,7 @@ def read_catalog(file_path, index_col=None, chunksize=10000):
         chunks.append(chunk)
     return pd.concat(chunks, ignore_index=True)
 
+
 def create_healpix_map(data, nside):
     npix = hp.nside2npix(nside)
     theta = np.radians(90.0 - data["dec"])
@@ -139,10 +156,12 @@ def create_healpix_map(data, nside):
     valid_density_map = np.bincount(valid_pixels, minlength=npix)
     return valid_density_map
 
+
 def plot_healpix_map(healpix_map, title, output_path):
     hp.mollview(healpix_map, title=title, unit="Galaxy Density", cmap="viridis")
     plt.savefig(output_path)
     plt.close()
+
 
 def stratify_data(data, healpix_map, nside):
     magnitude_columns = [
@@ -157,14 +176,21 @@ def stratify_data(data, healpix_map, nside):
         "z_des_realization",
         "y_des_realization",
     ]
-    magnitude_cut_mask = data["i_des_true"] > 22
+    magnitude_cut_mask = data["i_des_realization"] < 23.5
     data = data[magnitude_cut_mask]
 
     # Add error columns
     error_columns = [
-        "g_des_true_error", "r_des_true_error", "i_des_true_error", "z_des_true_error", "y_des_true_error",
-        "g_des_realization_error", "r_des_realization_error", "i_des_realization_error",
-        "z_des_realization_error", "y_des_realization_error"
+        "g_des_true_error",
+        "r_des_true_error",
+        "i_des_true_error",
+        "z_des_true_error",
+        "y_des_true_error",
+        "g_des_realization_error",
+        "r_des_realization_error",
+        "i_des_realization_error",
+        "z_des_realization_error",
+        "y_des_realization_error",
     ]
 
     valid_ra_dec_mask = (
@@ -182,16 +208,20 @@ def stratify_data(data, healpix_map, nside):
     data_filtered = data_filtered.copy()
     data_filtered["pixel_index"] = pixel_indices
 
-    filtered_healpix_map = create_healpix_map(data_filtered, nside)
-    threshold = np.percentile(filtered_healpix_map[filtered_healpix_map > 400], 95)
+    filtered_healpix_map = healpix_map[healpix_map > 350]
+    threshold = np.percentile(filtered_healpix_map, 95)
     print(f"Density threshold for high-density pixels: {threshold:.2f}")
     high_density_pixels = np.where(filtered_healpix_map > threshold)[0]
     low_density_pixels = np.where(filtered_healpix_map <= threshold)[0]
 
     necessary_columns = ["id", "ra", "dec", "z"] + magnitude_columns + error_columns
 
-    high_density_data = data_filtered[data_filtered["pixel_index"].isin(high_density_pixels)][necessary_columns]
-    low_density_data = data_filtered[data_filtered["pixel_index"].isin(low_density_pixels)][necessary_columns]
+    high_density_data = data_filtered[
+        data_filtered["pixel_index"].isin(high_density_pixels)
+    ][necessary_columns]
+    low_density_data = data_filtered[
+        data_filtered["pixel_index"].isin(low_density_pixels)
+    ][necessary_columns]
 
     min_size = min(len(high_density_data), len(low_density_data), len(data_filtered))
     print(f"High-density subset size: {len(high_density_data)}")
@@ -201,17 +231,26 @@ def stratify_data(data, healpix_map, nside):
 
     high_density_data = high_density_data.sample(n=min_size, random_state=42)
     low_density_data = low_density_data.sample(n=min_size, random_state=42)
-    random_sample_data = data_filtered.sample(n=min_size, random_state=42)[necessary_columns]
+    random_sample_data = data_filtered.sample(n=min_size, random_state=42)[
+        necessary_columns
+    ]
 
     return high_density_data, low_density_data, random_sample_data
+
 
 def save_datasets(high_data, low_data, random_data, output_paths):
     high_data.to_csv(output_paths["high"], index=False, compression="bz2")
     low_data.to_csv(output_paths["low"], index=False, compression="bz2")
     random_data.to_csv(output_paths["random"], index=False, compression="bz2")
 
+
 def plot_magnitude_distributions_i(
-    data, feature, output_path, subset_name="all", magnitude_cut=22, redshift_column="z"
+    data,
+    feature,
+    output_path,
+    subset_name="all",
+    magnitude_cut=23.5,
+    redshift_column="z",
 ):
     """
     Plot distribution of the observed i-band magnitude with a vertical line for the magnitude cut
@@ -247,7 +286,6 @@ def plot_magnitude_distributions_i(
     )
     ax1.legend(loc="upper left")
 
-
     # Title and grid
     plt.title(
         f"Distribution of {feature} Magnitude with {redshift_column} ({subset_name.capitalize()})"
@@ -261,7 +299,9 @@ def plot_magnitude_distributions_i(
     print(f"Saved plot: {plot_filename}")
 
 
-def plot_magnitude_distributions(data, features, output_path, subset_name="all", realization=False):
+def plot_magnitude_distributions(
+    data, features, output_path, subset_name="all", realization=False
+):
     """
     Plot distributions of observed magnitudes for true and realization values.
 
@@ -273,7 +313,11 @@ def plot_magnitude_distributions(data, features, output_path, subset_name="all",
         realization (bool): If True, uses realization magnitudes instead of true magnitudes.
     """
     # Select magnitude features based on whether it's realization or true
-    selected_features = [feature for feature in features if "realization" in feature] if realization else [feature for feature in features if "true" in feature]
+    selected_features = (
+        [feature for feature in features if "realization" in feature]
+        if realization
+        else [feature for feature in features if "true" in feature]
+    )
 
     # Plot distributions
     plt.figure(figsize=(10, 6))
@@ -282,13 +326,17 @@ def plot_magnitude_distributions(data, features, output_path, subset_name="all",
     plt.xlabel("Magnitude")
     plt.ylabel("Frequency")
     realization_text = "Realization" if realization else "True"
-    plt.title(f"Distribution of {realization_text} Magnitudes ({subset_name.capitalize()})")
+    plt.title(
+        f"Distribution of {realization_text} Magnitudes ({subset_name.capitalize()})"
+    )
     plt.legend()
     plt.grid()
 
     # Save the plot
     realization_suffix = "_realization" if realization else "_true"
-    plot_filename = f"{output_path}/magnitude_distributions{realization_suffix}_{subset_name}.png"
+    plot_filename = (
+        f"{output_path}/magnitude_distributions{realization_suffix}_{subset_name}.png"
+    )
     plt.savefig(plot_filename)
     plt.close()
     print(f"Saved plot: {plot_filename}")
@@ -374,7 +422,7 @@ def plot_true_redshift_distribution(data, target, output_path, subset_name="all"
     plt.close()
 
 
-def plot_density_histogram(healpix_map, threshold, output_path, nside=32):
+def plot_density_histogram_squaredegree(healpix_map, threshold, output_path, nside=32):
     """
     Plot a normalized histogram of galaxy densities with high/low density boundaries.
 
@@ -384,13 +432,13 @@ def plot_density_histogram(healpix_map, threshold, output_path, nside=32):
         output_path (str): Path to save the plot.
     """
     # Remove zero values for normalization
-     # Calculate the area of a HEALPix pixel in square degrees
+    # Calculate the area of a HEALPix pixel in square degrees
     npix = hp.nside2npix(nside)
     sky_area = 41253  # Total sky area in square degrees
     pixel_area = sky_area / npix  # Area of each pixel in square degrees
     # Convert galaxy density to galaxies per square degree
-    healpix_map_deg2 = healpix_map / pixel_area *256. 
-    threshold = threshold / pixel_area *256.    
+    healpix_map_deg2 = healpix_map / pixel_area * 256.0
+    threshold = threshold / pixel_area * 256.0
     plt.figure(figsize=(10, 6))
     # Normalize the histogram by setting `stat="density"` in sns.histplot
     sns.histplot(
@@ -413,6 +461,39 @@ def plot_density_histogram(healpix_map, threshold, output_path, nside=32):
     plt.legend()
     plt.grid()
     plt.savefig(f"{output_path}/density_histogram_normalized.png")
+    plt.close()
+
+def plot_density_histogram(healpix_map, threshold, output_path, nside=32):
+    """
+    Plot a histogram of galaxy densities with high/low density boundaries.
+    Not in square degrees.
+
+    Args:
+        healpix_map (_type_): _description_
+        threshold (_type_): _description_
+        output_path (_type_): _description_
+        nside (int, optional): _description_. Defaults to 32.
+    """
+    plt.figure(figsize=(10, 6))
+    sns.histplot(
+        healpix_map,
+        bins=100,
+        color="gray",
+        alpha=0.7,
+        label="Galaxy Density",
+    )
+    plt.axvline(
+        threshold,
+        color="red",
+        linestyle="--",
+        label=f"High/Low Density Threshold ({int(threshold)})",
+    )
+    plt.xlabel("Galaxy Density")
+    plt.ylabel("Frequency")
+    plt.title("Galaxy Density Distribution with High/Low Boundary")
+    plt.legend()
+    plt.grid()
+    plt.savefig(f"{output_path}/density_histogram.png")
     plt.close()
 
 def plot_pairwise_true_realization(
@@ -461,23 +542,39 @@ def plot_pairwise_true_realization(
     plt.close()
     print(f"Saved pairwise plot for realization features: {realization_plot_file}")
 
+
 @measure_time
 def main():
-    config = read_yaml_config("/Users/r.kanaki/code/inlabru_nbody/config/RS_micecat1_data_debug.yml")
-    #config = read_yaml_config("/Users/r.kanaki/code/inlabru_nbody/config/RS_micecat1_data_full_prep.yml")
+    config = read_yaml_config(
+        "/Users/r.kanaki/code/inlabru_nbody/config/RS_micecat1_data_debug.yml"
+    )
+    # config = read_yaml_config("/Users/r.kanaki/code/inlabru_nbody/config/RS_micecat1_data_full_prep.yml")
     catalog_path = config["input_path"]
     output_paths = config["output_path"]
     nside = config["nside"]
 
-    true_features = ["g_des_true","r_des_true","i_des_true","z_des_true","y_des_true"]
-    realization_features = ["g_des_realization","r_des_realization","i_des_realization","z_des_realization","y_des_realization"]
+    true_features = [
+        "g_des_true",
+        "r_des_true",
+        "i_des_true",
+        "z_des_true",
+        "y_des_true",
+    ]
+    realization_features = [
+        "g_des_realization",
+        "r_des_realization",
+        "i_des_realization",
+        "z_des_realization",
+        "y_des_realization",
+    ]
     redshift_target = "z"
 
     data = read_catalog(catalog_path)
     healpix_map = create_healpix_map(data, nside)
-    healpix_map_valid = healpix_map[healpix_map > 400]
-    density_threshold = np.percentile(healpix_map_valid,95)
+    healpix_map_valid = healpix_map[healpix_map > 350]
+    density_threshold = np.percentile(healpix_map_valid, 95)
     plot_density_histogram(healpix_map_valid, density_threshold, output_paths["plots"])
+    plot_density_histogram_squaredegree(healpix_map_valid, density_threshold, output_paths["plots"])
 
     high_data, low_data, random_data = stratify_data(data, healpix_map_valid, nside)
     save_datasets(high_data, low_data, random_data, output_paths)
@@ -486,10 +583,10 @@ def main():
     # Plot magnitude distributions for i-band
     plot_magnitude_distributions_i(
         data,
-        "i_des_true",
+        "i_des_realization",
         output_paths["plots"],
         subset_name="all",
-        magnitude_cut=22,
+        magnitude_cut=23.5,
         redshift_column="z",
     )
     # Plot magnitude distributions
@@ -506,7 +603,7 @@ def main():
         output_paths["plots"],
         subset_name="high_density",
         realization=False,
-    )   
+    )
     plot_magnitude_distributions(
         low_data,
         true_features,
@@ -549,7 +646,7 @@ def main():
         subset_name="random",
         realization=True,
     )
-    
+
     # Plot pairwise relationships
     plot_pairwise_true_realization(
         data,
@@ -652,8 +749,12 @@ def main():
         low_data, redshift_target, output_paths["plots"], subset_name="Low density"
     )
     plot_true_redshift_distribution(
-        random_data, redshift_target, output_paths["plots"], subset_name="Random Sampling"
+        random_data,
+        redshift_target,
+        output_paths["plots"],
+        subset_name="Random Sampling",
     )
+
 
 if __name__ == "__main__":
     main()

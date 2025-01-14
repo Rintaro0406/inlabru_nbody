@@ -167,7 +167,7 @@ def perform_statistical_tests(results, mode, model, output_dir):
             dz_values = delta_z_data.get((train1, train2), [])
             if len(dz_values) > 0:
                 mean_delta_z_matrix.loc[train1, train2] = np.mean(dz_values)
-                std_delta_z_matrix.loc[train1, train2] = np.std(dz_values, ddof=1)  # ddof=1 for sample std.
+                std_delta_z_matrix.loc[train1, train2] = float(np.std(dz_values, ddof=1))  # ddof=1 for sample std.
             else:
                 mean_delta_z_matrix.loc[train1, train2] = np.nan
                 std_delta_z_matrix.loc[train1, train2] = np.nan
@@ -210,11 +210,11 @@ def perform_statistical_tests(results, mode, model, output_dir):
                 continue
 
             # Variance difference
-            matrices["variance_diff"].loc[train1, train2] = np.var(delta_z1) - np.var(delta_z2)
+            matrices["variance_diff"].loc[train1, train2] = float(np.var(delta_z1) - np.var(delta_z2))
 
             # Student's t-test
             t_stat, p_value = ttest_ind(delta_z1, delta_z2, equal_var=True, nan_policy="omit")
-            matrices["student_t_stat"].loc[train1, train2] = t_stat
+            matrices["student_t_stat"].loc[train1, train2] = float(t_stat)
             matrices["student_p_value"].loc[train1, train2] = p_value
 
             # Welch's t-test
@@ -252,14 +252,15 @@ def main():
     #config_path = "/Users/r.kanaki/code/inlabru_nbody/config/RS_heatmap_micecat1_schnell.yml"
     #config_path = "/Users/r.kanaki/code/inlabru_nbody/config/RS_heatmap_micecat1_error.yml"
     #config_path = "/Users/r.kanaki/code/inlabru_nbody/config/RS_heatmap_micecat1_full.yml"
-    config_path = "/Users/r.kanaki/code/inlabru_nbody/config/RS_heatmap_micecat1_debug.yml"
+    #config_path = "/Users/r.kanaki/code/inlabru_nbody/config/RS_heatmap_micecat1_debug.yml"
+    config_path = "/Users/r.kanaki/code/inlabru_nbody/config/RS_heatmap_micecat1_new_experiment.yml"
     config = load_config(config_path)
 
     # Extract paths from configuration
     json_file = config["input"]["json_file"]
     mode_dirs = {
-        "true": config["output"]["true"]["heatmap_directory"],
-        "realization": config["output"]["realization"]["heatmap_directory"],
+        "true": config["output"]["true_dir"]["heatmap_directory"],
+        "realization": config["output"]["realization_dir"]["heatmap_directory"],
     }
 
     # Load results from JSON

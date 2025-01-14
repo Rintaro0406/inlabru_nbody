@@ -1,16 +1,16 @@
 input_paths:
-  high_density: "/Users/r.kanaki/code/inlabru_nbody/output/micecat1_schnell_debugged/high_density.csv.bz2"
-  low_density: "/Users/r.kanaki/code/inlabru_nbody/output/micecat1_schnell_debugged/low_density.csv.bz2"
-  random_sample: "/Users/r.kanaki/code/inlabru_nbody/output/micecat1_schnell_debugged/random_sampling.csv.bz2"
+  high_density: "/Users/r.kanaki/code/inlabru_nbody/output/micecat1_DES_LSST_source_mag/high_density.csv.bz2"
+  low_density: "/Users/r.kanaki/code/inlabru_nbody/output/micecat1_DES_LSST_source_mag/low_density.csv.bz2"
+  random_sample: "/Users/r.kanaki/code/inlabru_nbody/output/micecat1_DES_LSST_source_mag/random_sampling.csv.bz2"
 
 output_paths:
-  base_dir: "/Users/r.kanaki/code/inlabru_nbody/output/micecat1_new_experiment_debug/RS_result"
+  base_dir: "/Users/r.kanaki/code/inlabru_nbody/output/micecat1_DES_LSST_source_mag/RS_result"
   true_dir: 
-    random_forest: "/Users/r.kanaki/code/inlabru_nbody/output/micecat1_new_experiment_debug/RS_result/true/random_forest"
-    nn: "/Users/r.kanaki/code/inlabru_nbody/output/micecat1_new_experiment_debug/RS_result/true/1nn"
+    random_forest: "/Users/r.kanaki/code/inlabru_nbody/output/micecat1_DES_LSST_source_mag/RS_result/true/random_forest"
+    nn: "/Users/r.kanaki/code/inlabru_nbody/output/micecat1_DES_LSST_source_mag/RS_result/true/1nn"
   realization_dir: 
-    random_forest: "/Users/r.kanaki/code/inlabru_nbody/output/micecat1_new_experiment_debug/RS_result/realization/random_forest"
-    nn: "/Users/r.kanaki/code/inlabru_nbody/output/micecat1_new_experiment_debug/RS_result/realization/1nn"
+    random_forest: "/Users/r.kanaki/code/inlabru_nbody/output/micecat1_DES_LSST_source_mag/RS_result/realization/random_forest"
+    nn: "/Users/r.kanaki/code/inlabru_nbody/output/micecat1_DES_LSST_source_mag/RS_result/realization/1nn"
 
 parameters:
   n_estimators: 100
